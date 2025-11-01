@@ -8,21 +8,22 @@ swift rlhf \
     --reward_funcs copypaste_answer copypaste_format \
     --reward_weights 1.0 1.0 \
     --custom_register_path dataset.py \
-    --remove_unused_columns false \
     --train_type full \
+    --use_hf true \
     --torch_dtype bfloat16 \
-    --dataset 'Salesforce/FaithEval-counterfactual-v1.0' \
+    --dataset 'hotpot_qa' \
+    --split_dataset_ratio 0.001 \
     --load_from_cache_file true \
     --max_length 2048 \
     --max_completion_length 1024 \
-    --num_train_epochs 2 \
-    --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 2 \
+    --num_train_epochs 1 \
+    --per_device_train_batch_size 8 \
+    --per_device_eval_batch_size 8 \
     --learning_rate 5e-7 \
     --gradient_accumulation_steps 4 \
     --eval_steps 100 \
     --save_steps 100 \
-    --save_total_limit 20 \
+    --save_total_limit 10 \
     --logging_steps 1 \
     --output_dir /data/lyc/ms-swift/output/CopyPasteLRM \
     --warmup_ratio 0.01 \
@@ -35,3 +36,4 @@ swift rlhf \
     --report_to wandb \
     --beta 0.001 \
     --num_iterations 1 \
+    --resume_from_checkpoint /data/lyc/ms-swift/output/CopyPasteLRM/v51-20251101-184710/checkpoint-600/ \

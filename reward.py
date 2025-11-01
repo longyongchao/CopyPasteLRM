@@ -17,8 +17,7 @@ class CopyPasteAnswerORM(ORM):
             List[float]: 每个输出的奖励分数（1或0）
         """
 
-        # print('golden_response', solution[0])
-
+        # print('test solution input: ', solution[0])
 
         rewards = []
         answer_pattern = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
@@ -42,7 +41,6 @@ class CopyPasteAnswerORM(ORM):
             else:
                 rewards.append(0.0)
 
-
         return rewards
 
 orms['copypaste_answer'] = CopyPasteAnswerORM
@@ -50,24 +48,39 @@ orms['copypaste_answer'] = CopyPasteAnswerORM
 
 class CopyPasteFormatORM(ORM):
 
-    def __call__(self, completions, context, **kwargs) -> List[float]:
+    def __call__(self, completions, solution, **kwargs) -> List[float]:
         """奖励推理过程是否使用并正确使用了上下文片段
 
         Args:
             completions (List[str]): 模型生成的输出文本
-            context (str): 提供的上下文字符串
+            solution(str): 提供数据集的其它字段
 
         Returns:
             List[float]: 每个输出的奖励分数（1或0）
         """
 
-        # print('context', context[0][:50])
-
         rewards = []
         think_pattern = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
         copy_pattern = re.compile(r"<copy>(.*?)</copy>", re.DOTALL | re.IGNORECASE)
 
-        for text, ctx in zip(completions, context):
+        for text, s in zip(completions, solution):
+            ctx_dict = s.get('context', {})
+            supporting_facts = s.get('supporting_facts', [])
+
+            ctx = ''
+            for title, sent_id in zip(supporting_facts.get('title', []), supporting_facts.get('sent_id', [])):
+                idx_title = ctx_dict.get('title', []).index(title)
+                if idx_title == -1:
+                    continue
+                ctx_sentences = ctx_dict.get('sentences', [])
+                if not ctx_sentences:
+                    continue
+                if idx_title >= len(ctx_sentences):
+                    continue
+                if sent_id >= len(ctx_sentences[idx_title]):
+                    continue
+                ctx += ctx_dict.get('sentences', [])[idx_title][sent_id]
+            
             think_match = think_pattern.search(text)
             if not think_match:
                 rewards.append(0.0)
@@ -91,3 +104,13 @@ class CopyPasteFormatORM(ORM):
         return rewards
 
 orms['copypaste_format'] = CopyPasteFormatORM
+
+
+class CopyPasteUniORM(ORM):
+
+    def __call__(self, completions, solution, **kwargs) -> List[float]:
+        rewards = []
+
+        return rewards
+
+orms['copypaste_uni'] = CopyPasteUniORM
