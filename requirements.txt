@@ -1,0 +1,18 @@
+# Core dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Type checking
+mypy>=1.0.0
+types-requests>=2.28.0
+
+# Development tools
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+
+# Project dependencies (these should match your environment)
+# swift-llm  # This should be installed from your specific source
+# torch  # This should be installed based on your CUDA version
+# transformers  # This should match your swift-llm version

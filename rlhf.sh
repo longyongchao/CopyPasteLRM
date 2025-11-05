@@ -1,12 +1,11 @@
-CUDA_VISIBLE_DEVICES=0,1 \
+CUDA_VISIBLE_DEVICES=0 \
 WANDB_API_KEY=480c15fed2c86a166517dcea0e82bcc11e19b513 \
-NPROC_PER_NODE=2 \
+NPROC_PER_NODE=1 \
 swift rlhf \
     --rlhf_type grpo \
-    --model Qwen/Qwen2.5-3B-Instruct \
+    --model Qwen/Qwen2.5-0.5B-Instruct \
     --external_plugins reward.py \
-    --reward_funcs copypaste_answer copypaste_format \
-    --reward_weights 1.0 1.0 \
+    --reward_funcs copypaste_uni \
     --custom_register_path dataset.py \
     --train_type full \
     --use_hf true \
@@ -36,4 +35,4 @@ swift rlhf \
     --report_to wandb \
     --beta 0.001 \
     --num_iterations 1 \
-    --resume_from_checkpoint /data/lyc/ms-swift/output/CopyPasteLRM/v51-20251101-184710/checkpoint-600/ \
+    # --resume_from_checkpoint /data/lyc/ms-swift/output/CopyPasteLRM/v51-20251101-184710/checkpoint-600/ \
