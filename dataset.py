@@ -41,6 +41,12 @@ class HotpotQAPreprocessor(ResponsePreprocessor):
     """
 
     prompt = """
+Context: {context}
+
+Question: {question}
+
+---
+
 Answer questions using the provided Context.
 
 Formatting rules:
@@ -51,11 +57,6 @@ Formatting rules:
 5) Prefer natural, paragraph-style reasoning (not numbered steps). It is encouraged to integrate <copy>...</copy> evidence sentences seamlessly into your reasoning text to show traceability.
 
 i.e., <think> reasoning process (must include <copy>evidence from Context</copy> naturally) </think><answer> final answer here </answer>\n
-
----
-
-Context: {context}
-Question: {question}
 """.strip()
 
     def preprocess(self, row: HotpotQARow) -> Optional[ProcessedHotpotQARow]:
