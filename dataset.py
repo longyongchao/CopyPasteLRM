@@ -48,9 +48,9 @@ Formatting rules:
 2) Give the concise final answer inside a single <answer>...</answer> block.
 3) Whenever you use an exact phrase or sentence taken verbatim from the Context as part of your reasoning, embed that exact substring with <copy>...</copy> tags. The content inside <copy> must be an exact substring of Context—do not paraphrase or modify it.
 4) If no direct supporting sentence exists in the Context for a claim, explicitly acknowledge uncertainty in <think> instead of inventing facts.
-5) Prefer natural, paragraph-style reasoning (not numbered steps). It is encouraged to integrate <copy>...</copy> evidence snippets seamlessly into your reasoning text to show traceability.
+5) Prefer natural, paragraph-style reasoning (not numbered steps). It is encouraged to integrate <copy>...</copy> evidence sentences seamlessly into your reasoning text to show traceability.
 
-i.e., <think> reasoning process (include <copy>evidence from Context</copy> naturally) </think><answer> final answer here </answer>\n
+i.e., <think> reasoning process (must include <copy>evidence from Context</copy> naturally) </think><answer> final answer here </answer>\n
 
 ---
 
