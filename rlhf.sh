@@ -1,9 +1,9 @@
-CUDA_VISIBLE_DEVICES=0 \
+CUDA_VISIBLE_DEVICES=0,1 \
 WANDB_API_KEY=480c15fed2c86a166517dcea0e82bcc11e19b513 \
-NPROC_PER_NODE=1 \
+NPROC_PER_NODE=2 \
 swift rlhf \
     --rlhf_type grpo \
-    --model Qwen/Qwen2.5-0.5B-Instruct \
+    --model Qwen/Qwen2.5-3B-Instruct \
     --external_plugins reward.py \
     --reward_funcs copypaste_uni \
     --custom_register_path dataset.py \
