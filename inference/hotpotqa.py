@@ -137,6 +137,7 @@ def extract_answer_and_facts(response: str, context: Dict[str, Any]) -> Tuple[st
     if answer_match:
         answer = answer_match.group(1).strip()
     else:
+        print("未找到答案标签，默认答案为空字符串\n", response)
         answer = ""
 
     # 提取所有 <copy> 标签中的内容
