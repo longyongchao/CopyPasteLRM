@@ -95,7 +95,7 @@ i.e., </think> reasoning process (must include <copy>evidence from Context</copy
     return prompt
 
 
-def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 8196) -> str:
+def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4096) -> str:
     """
     调用模型进行推理
 
