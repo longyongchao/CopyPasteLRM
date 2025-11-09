@@ -7,3 +7,5 @@ result/
 htmlcov/
 .pytest_cache/
 .coverage
+
+*.json

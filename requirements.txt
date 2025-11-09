@@ -16,3 +16,7 @@ flake8>=6.0.0
 # swift-llm  # This should be installed from your specific source
 # torch  # This should be installed based on your CUDA version
 # transformers  # This should match your swift-llm version
+
+# Inference dependencies
+openai>=1.0.0
+datasets>=2.0.0
