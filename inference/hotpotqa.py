@@ -275,11 +275,6 @@ def run_inference(model_url: str, model_name: str, output_file: str, max_samples
             results["sp"][sample_id] = supporting_facts
             processed_count += 1
 
-            # 显示当前样本信息
-            tqdm.write(f"样本 {sample_id} 完成")
-            tqdm.write(f"  答案: {answer}")
-            tqdm.write(f"  支持事实数量: {len(supporting_facts)}")
-
             # 每间隔指定数量样本保存一次中间结果
             if processed_count % save_interval == 0 or processed_count == len(dataset):
                 save_intermediate_results(results, output_file, processed_count, len(dataset))
