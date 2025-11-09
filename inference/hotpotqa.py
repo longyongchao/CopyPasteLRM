@@ -95,7 +95,7 @@ i.e., </think> reasoning process (must include <copy>evidence from Context</copy
     return prompt
 
 
-def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 2048) -> str:
+def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 8196) -> str:
     """
     调用模型进行推理
 
@@ -113,7 +113,7 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 2
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
-            temperature=0.1,
+            temperature=1.0,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
