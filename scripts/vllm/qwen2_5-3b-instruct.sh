@@ -1,11 +1,8 @@
 # 激活conda环境
-eval "$(conda shell.bash hook)"
-conda activate vllm
-
 unset http_proxy
 unset https_proxy
 
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=1
 
 python -m vllm.entrypoints.openai.api_server \
   --served-model-name qwen2.5-3b-instruct \

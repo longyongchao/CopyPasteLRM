@@ -13,7 +13,7 @@ swift rlhf \
     --dataset 'hotpot_qa' \
     --split_dataset_ratio 0.001 \
     --load_from_cache_file true \
-    --max_length 2048 \
+    --max_length 4096 \
     --max_completion_length 1024 \
     --num_train_epochs 1 \
     --per_device_train_batch_size 8 \
