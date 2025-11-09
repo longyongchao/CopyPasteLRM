@@ -11,7 +11,7 @@ HotpotQA 推理脚本（多线程版本）
 5. 支持中间结果保存，防止意外中断导致数据丢失
 
 使用方法：
-python inference/hotpotqa.py --model-url http://localhost:8000/v1 --model-name model_name --output-file predictions.json --num-threads 4
+python inference/hotpotqa.py --model-url http://localhost:8124/v1 --model-name qwen2.5-3b-instruct --output-file results/hotpotqa/3b.json --num-threads 96
 
 新增参数：
 --num-threads: 并行推理的线程数量，默认为 4
@@ -113,7 +113,7 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 2
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
-            temperature=1.0,
+            temperature=0.7,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -263,7 +263,7 @@ def run_inference(model_url: str, model_name: str, output_file: str, max_samples
     processed_count = 0
 
     # 设置保存间隔
-    save_interval = 20
+    save_interval = 1000
 
     def update_results(sample_id: str, answer: str, supporting_facts: List[List[str]]):
         """线程安全地更新结果"""
