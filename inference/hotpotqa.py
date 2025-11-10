@@ -11,7 +11,7 @@ HotpotQA 推理脚本（多线程版本）
 5. 支持中间结果保存，防止意外中断导致数据丢失
 
 使用方法：
-python inference/hotpotqa.py --model-url http://localhost:8124/v1 --model-name qwen2.5-3b-instruct --output-file results/hotpotqa/3b.json --num-threads 96
+python inference/hotpotqa.py --model-url http://localhost:8124/v1 --model-name qwen3-8b --output-file results/hotpotqa/qwen3-8b.json --num-threads 32
 
 新增参数：
 --num-threads: 并行推理的线程数量，默认为 4
@@ -84,13 +84,13 @@ Question: {question}
 Answer questions using the provided Context.
 
 Formatting rules:
-1) Explain your reasoning in a natural, fluent way inside a single </think>...</think> block.
+1) Explain your reasoning in a natural, fluent way inside a single <think>...</think> block.
 2) Give the concise final answer inside a single <answer>...</answer> block.
 3) Whenever you use an exact phrase or sentence taken verbatim from the Context as part of your reasoning, embed that exact substring with <copy>...</copy> tags. The content inside <copy> must be an exact substring of Context—do not paraphrase or modify it.
-4) If no direct supporting sentence exists in the Context for a claim, explicitly acknowledge uncertainty in </think> instead of inventing facts.
+4) If no direct supporting sentence exists in the Context for a claim, explicitly acknowledge uncertainty in <think></think> instead of inventing facts.
 5) Prefer natural, paragraph-style reasoning (not numbered steps). It is encouraged to integrate <copy>...</copy> evidence sentences seamlessly into your reasoning text to show traceability.
 
-i.e., </think> reasoning process (must include <copy>evidence from Context</copy> naturally) </think><answer> final answer here </answer>
+i.e., <think> reasoning process (must include <copy>evidence from Context</copy> naturally) </think><answer> final answer here </answer>
 """.strip()
     return prompt
 
@@ -114,9 +114,13 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=1.0,
-            # top_p=0.9,
+            # top_p=0.8,
             # frequency_penalty=1.15,
-            # presence_penalty=0.1
+            presence_penalty=1.5,
+            extra_body={
+                # "top_k": 20,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -208,7 +212,7 @@ def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: st
         # 提取答案和支持事实
         answer, supporting_facts = extract_answer_and_facts(response, sample["context"])
 
-        return sample_id, answer, supporting_facts
+        return sample_id, answer, supporting_facts, response
 
     except Exception as e:
         print(f"处理样本 {sample_id} 时发生错误: {e}")
@@ -260,7 +264,7 @@ def run_inference(model_url: str, model_name: str, output_file: str, max_samples
     print(f"使用 {num_threads} 个线程进行并行推理")
 
     # 初始化结果存储（线程安全）
-    results = {"answer": {}, "sp": {}}
+    results = {"answer": {}, "sp": {}, "response": {}}
 
     # 线程锁，用于保护共享资源
     results_lock = threading.Lock()
@@ -269,13 +273,14 @@ def run_inference(model_url: str, model_name: str, output_file: str, max_samples
     # 设置保存间隔
     save_interval = 1000
 
-    def update_results(sample_id: str, answer: str, supporting_facts: List[List[str]]):
+    def update_results(sample_id: str, answer: str, supporting_facts: List[List[str]], response: str):
         """线程安全地更新结果"""
         nonlocal processed_count
 
         with results_lock:
             results["answer"][sample_id] = answer
             results["sp"][sample_id] = supporting_facts
+            results["response"][sample_id] = response
             processed_count += 1
 
             # 每间隔指定数量样本保存一次中间结果
@@ -295,13 +300,13 @@ def run_inference(model_url: str, model_name: str, output_file: str, max_samples
 
                 try:
                     # 获取结果
-                    result_sample_id, answer, supporting_facts = future.result()
+                    result_sample_id, answer, supporting_facts, response = future.result()
 
                     # 更新进度条描述
                     pbar.set_description(f"处理样本 {sample_id}")
 
                     # 更新结果
-                    update_results(result_sample_id, answer, supporting_facts)
+                    update_results(result_sample_id, answer, supporting_facts, response)
 
                 except Exception as e:
                     tqdm.write(f"样本 {sample_id} 处理失败: {e}")
@@ -323,7 +328,7 @@ def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="HotpotQA 推理脚本（多线程版本）")
     parser.add_argument("--model-url", type=str, default="https://api.siliconflow.cn/v1", help="vLLM 服务地址，例如: https://api.siliconflow.cn/v1")
-    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2.5-72B-Instruct", help="模型名称")
+    parser.add_argument("--model-name", type=str, default="deepseek-ai/DeepSeek-V3.1-Terminus", help="模型名称")
     parser.add_argument("--output-file", type=str, default="predictions.json", help="输出文件路径")
     parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
     parser.add_argument("--num-threads", type=int, default=4, help="并行推理的线程数量，默认为 4")
