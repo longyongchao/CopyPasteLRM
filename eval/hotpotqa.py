@@ -312,20 +312,21 @@ def eval(prediction_file):
             metrics["joint_prec"] += joint_prec
             metrics["joint_recall"] += joint_recall
 
-    # 计算平均指标（除以预测总数）
-    # 统计 prediction 中实际有预测的样本数量
-    answer_ids = set(prediction["answer"].keys()) if "answer" in prediction else set()
-    sp_ids = set(prediction["sp"].keys()) if "sp" in prediction else set()
+    # # 计算平均指标（除以预测总数）
+    # # 统计 prediction 中实际有预测的样本数量
+    # answer_ids = set(prediction["answer"].keys()) if "answer" in prediction else set()
+    # sp_ids = set(prediction["sp"].keys()) if "sp" in prediction else set()
 
-    # 取并集，只要答案或支持事实有一个有预测，就计入总数
-    prediction_count = len(answer_ids.union(sp_ids))
+    # # 取并集，只要答案或支持事实有一个有预测，就计入总数
+    # prediction_count = len(answer_ids.union(sp_ids))
 
-    # 如果没有预测数据，避免除零错误
-    if prediction_count == 0:
-        print("警告：没有找到任何预测数据")
-        prediction_count = 1
+    # # 如果没有预测数据，避免除零错误
+    # if prediction_count == 0:
+    #     print("警告：没有找到任何预测数据")
+    #     prediction_count = 1
 
-    print(f"预测样本数量: {prediction_count} (答案: {len(answer_ids)}, 支持事实: {len(sp_ids)})")
+    # print(f"预测样本数量: {prediction_count} (答案: {len(answer_ids)}, 支持事实: {len(sp_ids)})")
+    prediction_count = len(gold)  # 使用 gold 数据集的样本数量作为分母
 
     # 使用预测数量作为分母计算平均指标
     for k in metrics.keys():

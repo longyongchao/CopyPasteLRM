@@ -114,13 +114,9 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
             temperature=1.0,
-            top_p=0.9,
-            frequency_penalty=1.15,
-            presence_penalty=0.1,
-            extra_body={
-                "no_repeat_ngram_size": 3,
-                "repetition_penalty": 1.15,
-            },
+            # top_p=0.9,
+            # frequency_penalty=1.15,
+            # presence_penalty=0.1
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
