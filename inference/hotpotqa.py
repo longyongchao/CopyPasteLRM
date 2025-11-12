@@ -11,7 +11,7 @@ HotpotQA 推理脚本（多线程版本）
 5. 支持中间结果保存，防止意外中断导致数据丢失
 
 使用方法：
-python inference/hotpotqa.py --model-url http://localhost:8124/v1 --model-name qwen3-8b --output-file results/hotpotqa/qwen3-8b.json --num-threads 32
+python inference/hotpotqa.py --model-url http://localhost:8124/v1 --model-name qwen2.5-3b-instruct --output-file results/hotpotqa/qwen2.5-3b-instruct-direct.json --num-threads 32 --prompt-type direct
 
 新增参数：
 --num-threads: 并行推理的线程数量，默认为 4
@@ -63,7 +63,7 @@ def format_context(context: Dict[str, Any]) -> str:
     return context_text
 
 
-def create_prompt(question: str, context: str) -> str:
+def create_prompt(question: str, context: str, prompt_type: str) -> str:
     """
     创建推理提示
 
@@ -74,7 +74,7 @@ def create_prompt(question: str, context: str) -> str:
     Returns:
         str: 完整的提示文本
     """
-    prompt = f"""
+    reasoning_with_copy_paste = f"""
 Context: {context}
 
 Question: {question}
@@ -92,6 +92,47 @@ Formatting rules:
 
 i.e., <think> reasoning process (must include <copy>evidence from Context</copy> naturally) </think><answer> final answer here </answer>
 """.strip()
+
+    reasoning = f"""
+Context: {context}
+
+Question: {question}
+
+---
+
+Answer questions using the provided Context.
+
+Formatting rules:
+1) Explain your reasoning before giving the final answer.
+2) Give the concise final answer inside a single <answer>...</answer> block.
+
+i.e., reasoning process... <answer> final answer here </answer>
+""".strip()
+
+    direct = f"""
+Context: {context}
+
+Question: {question}
+
+---
+
+Answer questions using the provided Context.
+
+Formatting rules:
+1) Give the concise final answer inside a single <answer>...</answer> block directly.
+
+i.e., <answer> final answer here </answer>
+""".strip()
+
+    if prompt_type == "reasoning with copy-paste":
+        prompt = reasoning_with_copy_paste
+    elif prompt_type == "reasoning":
+        prompt = reasoning
+    elif prompt_type == "direct":
+        prompt = direct
+    else:
+        raise ValueError(f"未知的 prompt_type: {prompt_type}")
+
     return prompt
 
 
@@ -113,10 +154,10 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
-            temperature=1.0,
-            # top_p=0.8,
+            temperature=0,
+            top_p=0.1,
             # frequency_penalty=1.15,
-            presence_penalty=1.5,
+            # presence_penalty=1.5,
             extra_body={
                 # "top_k": 20,
                 "chat_template_kwargs": {"enable_thinking": False},
@@ -184,7 +225,7 @@ def find_text_in_context(text: str, context: Dict[str, Any]) -> Tuple[str, int]:
     return "", None
 
 
-def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: str) -> Tuple[str, str, List[List[str]]]:
+def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: str, prompt_type: str) -> Tuple[str, str, List[List[str]]]:
     """
     处理单个样本的推理任务
 
@@ -201,7 +242,7 @@ def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: st
     try:
         # 格式化上下文和创建提示
         context_text = format_context(sample["context"])
-        prompt = create_prompt(sample["question"], context_text)
+        prompt = create_prompt(sample["question"], context_text, prompt_type)
 
         # 调用模型
         response = call_model(client, model_name, prompt)
@@ -240,7 +281,7 @@ def save_intermediate_results(results: Dict[str, Any], output_file: str, process
     print(f"已保存中间结果 ({processed_count}/{total_count}): {intermediate_file}")
 
 
-def run_inference(model_url: str, model_name: str, output_file: str, max_samples: int = None, num_threads: int = 4):
+def run_inference(model_url: str, model_name: str, output_file: str, max_samples: int = None, num_threads: int = 4, prompt_type: str = "reasoning with copy-paste"):
     """
     运行完整的推理流程（多线程版本）
 
@@ -290,7 +331,7 @@ def run_inference(model_url: str, model_name: str, output_file: str, max_samples
     # 使用线程池进行并行处理
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         # 提交所有任务
-        future_to_sample = {executor.submit(process_single_sample, sample, client, model_name): sample for sample in dataset}
+        future_to_sample = {executor.submit(process_single_sample, sample, client, model_name, prompt_type): sample for sample in dataset}
 
         # 使用 tqdm 显示进度条
         with tqdm(total=len(dataset), desc="推理进度", unit="样本") as pbar:
@@ -332,6 +373,7 @@ def main():
     parser.add_argument("--output-file", type=str, default="predictions.json", help="输出文件路径")
     parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
     parser.add_argument("--num-threads", type=int, default=4, help="并行推理的线程数量，默认为 4")
+    parser.add_argument("--prompt-type", type=str, default="reasoning with copy-paste", choices=["reasoning with copy-paste", "reasoning", "direct"], help="提示模板选择")
 
     args = parser.parse_args()
 
@@ -341,7 +383,7 @@ def main():
     print(f"输出文件: {args.output_file}")
     print(f"线程数量: {args.num_threads}")
 
-    run_inference(args.model_url, args.model_name, args.output_file, args.max_samples, args.num_threads)
+    run_inference(args.model_url, args.model_name, args.output_file, args.max_samples, args.num_threads, args.prompt_type)
 
 
 if __name__ == "__main__":
