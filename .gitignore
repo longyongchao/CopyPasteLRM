@@ -8,6 +8,6 @@ htmlcov/
 .pytest_cache/
 .coverage
 
-*.json
-
 log/*
+
+results/*
