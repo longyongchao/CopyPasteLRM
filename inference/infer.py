@@ -23,6 +23,7 @@ import os
 import re
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, Tuple
 
@@ -35,6 +36,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from inference.prompt import create_prompt
+from load_datasets.faitheval import load_faitheval
 from load_datasets.hotpotqa import load_hotpotqa
 
 
@@ -120,13 +122,13 @@ def save_intermediate_results(results: Dict[str, Any], output_file: str, process
 
 
 def run_inference(
-    model_url: str,
+    server_url: str,
     model_name: str,
     output_file: str,
     max_samples: int = None,
     num_threads: int = 4,
     prompt_type: str = "reasoning with copy-paste",
-    dataset: str = "hotpotqa",
+    dataset_name: str = "hotpotqa",
     api_key: str = "sk-wingchiu",
     temperature: float = 0.7,
     top_p: float = 0.95,
@@ -142,19 +144,24 @@ def run_inference(
         num_threads: 线程数量，默认为 4
     """
     # 初始化 OpenAI 客户端
-    client = OpenAI(base_url=model_url, api_key=api_key)
+    client = OpenAI(base_url=server_url, api_key=api_key)
 
     # 加载数据集
-    if dataset == "hotpotqa":
+    if dataset_name == "hotpotqa":
         dataset = load_hotpotqa()
+    elif dataset_name == "faitheval":
+        dataset = load_faitheval()
     else:
-        raise ValueError(f"不支持的数据集: {dataset}")
+        raise ValueError(f"不支持的数据集: {dataset_name}")
 
     if max_samples:
         dataset = dataset[:max_samples]
         print(f"限制处理样本数量为: {max_samples}")
 
     print(f"使用 {num_threads} 个线程进行并行推理")
+
+    prompt_snapshot = create_prompt("示例问题", "示例上下文", prompt_type)
+    start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
     # 初始化结果存储（线程安全）
     results = {}
@@ -208,9 +215,27 @@ def run_inference(
                 # 更新进度条
                 pbar.update(1)
 
+    end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+    # 记录实验信息
+    experiment_info = {
+        "server_url": server_url,
+        "model_name": model_name,
+        "prompt_type": prompt_type,
+        "prompt_snapshot": prompt_snapshot,
+        "start_time": start_time,
+        "end_time": end_time,
+        "temperature": temperature,
+        "top_p": top_p,
+        "dataset": dataset_name,
+        "max_samples": max_samples,
+        "num_threads": num_threads,
+        "output_file": output_file,
+    }
+
     # 保存最终结果
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
+        json.dump({"info": experiment_info, "data": results}, f, ensure_ascii=False, indent=2)
 
     print(f"推理完成，结果已保存到: {output_file}")
     print(f"总共处理了 {len(results)} 个样本")
@@ -234,7 +259,7 @@ def main():
     parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
     parser.add_argument("--num-threads", type=int, default=32, help="并行推理的线程数量，默认为 4")
     parser.add_argument("--prompt-type", type=str, default="reasoning with copy-paste", choices=["reasoning with copy-paste", "reasoning", "direct"], help="提示模板选择")
-    parser.add_argument("--dataset", type=str, default="hotpotqa", choices=["hotpotqa"], help="数据集名称，当前仅支持 hotpotqa")
+    parser.add_argument("--dataset", type=str, default="hotpotqa", choices=["hotpotqa", "faitheval"], help="数据集名称，当前仅支持 hotpotqa")
     parser.add_argument("--api-key", type=str, default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh", help="API Key，用于访问 第三方 服务")
     parser.add_argument("--temperature", type=float, default=0.7, help="模型生成温度")
     parser.add_argument("--top-p", type=float, default=0.95, help="模型生成 top-p 采样")
@@ -246,7 +271,7 @@ def main():
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
     output_file = f"results/{args.dataset}/{server_url_clean}-{model_name_clean}-temp={args.temperature}-topp={args.top_p}-prompt={args.prompt_type.replace(' ', '_')}-maxsamples={args.max_samples}-{timestamp}.json"
 
-    run_inference(model_url=args.server_url, model_name=args.model_name, output_file=output_file, max_samples=args.max_samples, num_threads=args.num_threads, prompt_type=args.prompt_type, dataset=args.dataset, api_key=args.api_key, temperature=args.temperature, top_p=args.top_p)
+    run_inference(server_url=args.server_url, model_name=args.model_name, output_file=output_file, max_samples=args.max_samples, num_threads=args.num_threads, prompt_type=args.prompt_type, dataset_name=args.dataset, api_key=args.api_key, temperature=args.temperature, top_p=args.top_p)
 
 
 if __name__ == "__main__":
