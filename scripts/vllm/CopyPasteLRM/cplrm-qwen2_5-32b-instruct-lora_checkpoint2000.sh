@@ -12,7 +12,7 @@ lora_modules_path="/mnt/lustre/DATA/longyongchao/ms-swift/v3-20251109-211436/bac
 python -m vllm.entrypoints.openai.api_server \
 	--model $base_model \
 	--enable-lora \
-	--lora-modules cplrm-32b-lora=$lora_modules_path \
+	--lora-modules cplrm-qwen2.5-32b-instruct-step2000=$lora_modules_path \
 	--host 0.0.0.0 \
 	--port 8124 \
 	--gpu-memory-utilization 0.85 \
