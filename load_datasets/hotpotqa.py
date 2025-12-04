@@ -1,7 +1,20 @@
-import sys
 from typing import Any, Dict, List
 
 from datasets import load_dataset
+from tqdm import tqdm
+
+
+def format_supporting_facts(supporting_facts: dict, context: dict) -> List[str]:
+    """返回["fact_1", "fact_2", "fact_3"]"""
+    sfs = []
+    for title, sent_id in zip(supporting_facts["title"], supporting_facts["sent_id"]):
+        try:
+            sentences_idx = context["title"].index(title)
+            sf = context["sentences"][sentences_idx][sent_id]
+            sfs.append(sf)
+        except:
+            print(f"Warning in formatting supporting facts: title={title}, sent_id={sent_id}")
+    return sfs
 
 
 def format_context(context: Dict[str, Any]) -> str:
@@ -36,12 +49,13 @@ def load_hotpotqa(origin: bool = False) -> List[Dict[str, Any]]:
 
     formated_dataset = []
 
-    for sample in dataset:
+    for sample in tqdm(dataset):
         formated_sample = {
             "id": sample["id"],
             "query": sample["question"],
             "context": format_context(sample["context"]),
             "answer": sample["answer"],
+            "sfs": format_supporting_facts(sample["supporting_facts"], sample["context"]),
         }
         formated_dataset.append(formated_sample)
 
