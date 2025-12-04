@@ -11,7 +11,7 @@ python -m vllm.entrypoints.openai.api_server \
   --port 8124 \
   --gpu-memory-utilization 0.88 \
   --max-model-len 8192 \
-  --max-num-seqs 64 \
+  --max-num-seqs 128 \
   --tensor-parallel-size 1 \
   --disable-log-requests \
   # --disable-log-stats

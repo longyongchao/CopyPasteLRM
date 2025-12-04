@@ -175,7 +175,7 @@ def run_inference(
     processed_count = 0
 
     # 设置保存间隔
-    save_interval = 10
+    save_interval = 1000
 
     def update_results(sample_id: str, sample: dict, predict: str):
         """线程安全地更新结果"""
@@ -252,12 +252,7 @@ def main():
     parser.add_argument(
         "--model-name",
         type=str,
-        default="cplrm-qwen2.5-3b-instruct-step500",
-        choices=[
-            "cplrm-qwen2.5-3b-instruct-step500",
-            "cplrm-qwen2.5-32b-instruct-step2000",
-            "Qwen/Qwen2.5-14B-Instruct",
-        ],
+        required=True,
         help="模型名称",
     )
     parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
