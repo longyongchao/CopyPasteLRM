@@ -11,4 +11,4 @@
 #SBATCH --requeue                  		# 运行失败时重新排队
 
 # 运行Python脚本
-bash cplrm-qwen2_5-32b-instruct-lora_checkpoint2000.sh
+bash scripts/vllm/CopyPasteLRM/cplrm-qwen2_5-32b-instruct-lora_checkpoint2000.sh
