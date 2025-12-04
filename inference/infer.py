@@ -1,0 +1,253 @@
+"""
+HotpotQA 推理脚本（多线程版本）
+
+该脚本用于在 HotpotQA 数据集上进行模型推理，并生成符合评估格式的结果文件。
+
+功能：
+1. 从 HuggingFace 加载 HotpotQA 数据集的 distractor 子集 validation split
+2. 使用多线程并行调用 vLLM 部署的模型进行推理，显著提升推理速度
+3. 解析模型输出，提取答案和支持事实
+4. 保存为 eval/hotpotqa.py 所需的格式
+5. 支持中间结果保存，防止意外中断导致数据丢失
+
+使用方法：
+python inference/infer.py --server-url https://api.siliconflow.cn/v1 --model-name Qwen/Qwen2.5-14B-Instruct  --num-threads 2 --prompt-type direct --max-samples 10
+
+新增参数：
+--num-threads: 并行推理的线程数量，默认为 4
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, Tuple
+
+from openai import OpenAI
+from tqdm import tqdm
+
+# 添加项目根目录到 Python 路径
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from inference.prompt import create_prompt
+from load_datasets.hotpotqa import load_hotpotqa
+
+
+def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4096, temperature: float = 0.7, top_p=0.95) -> str:
+    """
+    调用模型进行推理
+
+    Args:
+        client: OpenAI 客户端
+        model_name: 模型名称
+        prompt: 输入提示
+        max_tokens: 最大生成 token 数
+
+    Returns:
+        str: 模型生成的回答
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            extra_body={
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"模型调用失败: {e}")
+        return ""
+
+
+def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: str, prompt_type: str, temperature: float, top_p: float) -> Tuple[str, str]:
+    """
+    处理单个样本的推理任务
+
+    Args:
+        sample: 数据样本
+        client: OpenAI 客户端
+        model_name: 模型名称
+
+    Returns:
+        Tuple[str, str]: (样本ID, 预测响应)
+    """
+    sample_id = sample["id"]
+
+    try:
+        # 格式化上下文和创建提示
+        prompt = create_prompt(sample["query"], sample["context"], prompt_type)
+
+        # 调用模型
+        predict = call_model(client, model_name, prompt, temperature=temperature, top_p=top_p)
+
+        if not predict:
+            return sample_id, None
+
+        return sample_id, predict
+
+    except Exception as e:
+        print(f"处理样本 {sample_id} 时发生错误: {e}")
+        return sample_id, e
+
+
+def save_intermediate_results(results: Dict[str, Any], output_file: str, processed_count: int, total_count: int):
+    """
+    保存中间结果
+
+    Args:
+        results: 当前结果字典
+        output_file: 输出文件路径
+        processed_count: 已处理样本数
+        total_count: 总样本数
+    """
+    # 创建中间结果文件名
+    # 确保输出目录存在
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+
+    print(f"已保存中间结果 ({processed_count}/{total_count}): {output_file}")
+
+
+def run_inference(
+    model_url: str,
+    model_name: str,
+    output_file: str,
+    max_samples: int = None,
+    num_threads: int = 4,
+    prompt_type: str = "reasoning with copy-paste",
+    dataset: str = "hotpotqa",
+    api_key: str = "sk-wingchiu",
+    temperature: float = 0.7,
+    top_p: float = 0.95,
+):
+    """
+    运行完整的推理流程（多线程版本）
+
+    Args:
+        model_url: vLLM 服务地址
+        model_name: 模型名称
+        output_file: 输出文件路径
+        max_samples: 最大处理样本数，None 表示处理全部
+        num_threads: 线程数量，默认为 4
+    """
+    # 初始化 OpenAI 客户端
+    client = OpenAI(base_url=model_url, api_key=api_key)
+
+    # 加载数据集
+    if dataset == "hotpotqa":
+        dataset = load_hotpotqa()
+    else:
+        raise ValueError(f"不支持的数据集: {dataset}")
+
+    if max_samples:
+        dataset = dataset[:max_samples]
+        print(f"限制处理样本数量为: {max_samples}")
+
+    print(f"使用 {num_threads} 个线程进行并行推理")
+
+    # 初始化结果存储（线程安全）
+    results = {}
+
+    # 线程锁，用于保护共享资源
+    results_lock = threading.Lock()
+    processed_count = 0
+
+    # 设置保存间隔
+    save_interval = 10
+
+    def update_results(sample_id: str, sample: dict, predict: str):
+        """线程安全地更新结果"""
+        nonlocal processed_count
+
+        with results_lock:
+            results[sample_id] = sample
+            results[sample_id]["predict"] = predict
+            processed_count += 1
+
+            # 每间隔指定数量样本保存一次中间结果
+            if processed_count % save_interval == 0 or processed_count == len(dataset):
+                save_intermediate_results(results, output_file, processed_count, len(dataset))
+
+    # 使用线程池进行并行处理
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        # 提交所有任务
+        future_to_sample = {executor.submit(process_single_sample, sample, client, model_name, prompt_type, temperature, top_p): sample for sample in dataset}
+
+        # 使用 tqdm 显示进度条
+        with tqdm(total=len(dataset), desc="推理进度", unit="样本") as pbar:
+            for future in as_completed(future_to_sample):
+                sample = future_to_sample[future]
+                sample_id = sample["id"]
+
+                try:
+                    # 获取结果
+                    result_sample_id, predict = future.result()
+
+                    # 更新进度条描述
+                    pbar.set_description(f"处理样本 {sample_id}")
+
+                    # 更新结果
+                    update_results(result_sample_id, sample, predict)
+
+                except Exception as e:
+                    tqdm.write(f"样本 {sample_id} 处理失败: {e}")
+                    # 即使失败也要更新结果（空结果）
+                    update_results(sample_id, sample, [])
+
+                # 更新进度条
+                pbar.update(1)
+
+    # 保存最终结果
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+
+    print(f"推理完成，结果已保存到: {output_file}")
+    print(f"总共处理了 {len(results)} 个样本")
+
+
+def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(description="HotpotQA 推理脚本（多线程版本）")
+    parser.add_argument("--server-url", type=str, default="http://localhost:8124/v1", help="vLLM 服务地址，例如: https://api.siliconflow.cn/v1")
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        default="cplrm-qwen2.5-3b-instruct-step500",
+        choices=[
+            "cplrm-qwen2.5-3b-instruct-step500",
+            "cplrm-qwen2.5-32b-instruct-step2000",
+            "Qwen/Qwen2.5-14B-Instruct",
+        ],
+        help="模型名称",
+    )
+    parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
+    parser.add_argument("--num-threads", type=int, default=32, help="并行推理的线程数量，默认为 4")
+    parser.add_argument("--prompt-type", type=str, default="reasoning with copy-paste", choices=["reasoning with copy-paste", "reasoning", "direct"], help="提示模板选择")
+    parser.add_argument("--dataset", type=str, default="hotpotqa", choices=["hotpotqa"], help="数据集名称，当前仅支持 hotpotqa")
+    parser.add_argument("--api-key", type=str, default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh", help="API Key，用于访问 第三方 服务")
+    parser.add_argument("--temperature", type=float, default=0.7, help="模型生成温度")
+    parser.add_argument("--top-p", type=float, default=0.95, help="模型生成 top-p 采样")
+
+    args = parser.parse_args()
+
+    timestamp = int(threading.get_native_id())
+    server_url_clean = args.server_url.replace("http://", "").replace("https://", "").replace("/", "_")
+    model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
+    output_file = f"results/{args.dataset}/{server_url_clean}-{model_name_clean}-temp={args.temperature}-topp={args.top_p}-prompt={args.prompt_type.replace(' ', '_')}-maxsamples={args.max_samples}-{timestamp}.json"
+
+    run_inference(model_url=args.server_url, model_name=args.model_name, output_file=output_file, max_samples=args.max_samples, num_threads=args.num_threads, prompt_type=args.prompt_type, dataset=args.dataset, api_key=args.api_key, temperature=args.temperature, top_p=args.top_p)
+
+
+if __name__ == "__main__":
+    main()
