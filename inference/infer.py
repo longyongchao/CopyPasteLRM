@@ -241,6 +241,7 @@ def run_inference(
     }
 
     # 保存最终结果
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump({"info": experiment_info, "data": results}, f, ensure_ascii=False, indent=2)
 

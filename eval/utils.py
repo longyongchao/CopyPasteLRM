@@ -13,6 +13,8 @@ def extract_answer_and_facts(response: str) -> Tuple[str, List[List[str]]]:
     Returns:
         Tuple[str, List[List[str]]]: (答案, 支持事实列表)
     """
+    if not isinstance(response, str):
+        return None, []
     # 提取答案
     answer_match = re.search(r"<answer>(.*?)</answer>", response, re.DOTALL)
     if answer_match:

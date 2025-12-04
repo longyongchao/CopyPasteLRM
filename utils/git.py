@@ -9,10 +9,6 @@ def get_git_commit_id(short: bool = False) -> str:
     :return: commit ID 字符串，失败返回空字符串
     """
     try:
-        # 切换到当前脚本所在目录（确保在 Git 仓库内）
-        repo_path = os.path.dirname(os.path.abspath(__file__))
-        os.chdir(repo_path)
-
         # 构建 Git 命令：short 为 True 时加 --short
         cmd = ["git", "rev-parse"]
         if short:

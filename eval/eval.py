@@ -104,7 +104,7 @@ def eval(path: str):
             em, prec, recall = update_answer(metrics, predicted_answer, item["answer"])
 
         # 评估支持事实部分
-        if len(predicted_facts) == 0:
+        if len(predicted_facts) == 0 or id not in dataset:
             no_facts_count += 1
             can_eval_joint = False
         else:
