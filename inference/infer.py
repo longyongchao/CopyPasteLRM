@@ -20,7 +20,6 @@ python inference/infer.py --server-url https://api.siliconflow.cn/v1 --model-nam
 import argparse
 import json
 import os
-import re
 import sys
 import threading
 import time
@@ -40,6 +39,7 @@ from load_datasets.faitheval import load_faitheval
 from load_datasets.hotpotqa import load_hotpotqa
 from load_datasets.musique import load_musique
 from load_datasets.pubmedqa import load_pubmedqa
+from utils.git import get_git_commit_id
 
 
 def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4096, temperature: float = 0.7, top_p=0.95) -> str:
@@ -221,6 +221,8 @@ def run_inference(
 
     end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
+    commit_id = get_git_commit_id()
+
     # 记录实验信息
     experiment_info = {
         "server_url": server_url,
@@ -235,6 +237,7 @@ def run_inference(
         "max_samples": max_samples,
         "num_threads": num_threads,
         "output_file": output_file,
+        "infer_git_commit_id": commit_id,
     }
 
     # 保存最终结果
@@ -269,6 +272,7 @@ def main():
     server_url_clean = args.server_url.replace("http://", "").replace("https://", "").replace("/", "_")
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
     output_file = f"results/{args.dataset}/{server_url_clean}-{model_name_clean}-temp={args.temperature}-topp={args.top_p}-prompt={args.prompt_type.replace(' ', '_')}-maxsamples={args.max_samples}-{timestamp}.json"
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     run_inference(server_url=args.server_url, model_name=args.model_name, output_file=output_file, max_samples=args.max_samples, num_threads=args.num_threads, prompt_type=args.prompt_type, dataset_name=args.dataset, api_key=args.api_key, temperature=args.temperature, top_p=args.top_p)
 
