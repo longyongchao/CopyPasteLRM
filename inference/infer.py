@@ -118,8 +118,6 @@ def save_intermediate_results(results: Dict[str, Any], output_file: str, process
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
-    print(f"已保存中间结果 ({processed_count}/{total_count}): {output_file}")
-
 
 def run_inference(
     server_url: str,
