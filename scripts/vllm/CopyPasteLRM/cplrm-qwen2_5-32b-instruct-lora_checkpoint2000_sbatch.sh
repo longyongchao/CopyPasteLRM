@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=deploy_qwen_32b		# 作业名称
+#SBATCH --job-name=deploy_cplrm_32b_lora	# 作业名称
 #SBATCH --output=log/output_%j.txt     		# 输出文件名称（%j会被替换为作业ID）
 #SBATCH --error=log/error_%j.txt       		# 错误文件名称
 #SBATCH --partition=gpu-a800			# 指定分区
@@ -11,4 +11,4 @@
 #SBATCH --requeue                  		# 运行失败时重新排队
 
 # 运行Python脚本
-bash qwen-32b-instruct.sh
+bash cplrm-qwen2_5-32b-instruct-lora_checkpoint2000.sh

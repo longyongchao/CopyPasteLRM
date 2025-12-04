@@ -5,8 +5,8 @@ unset https_proxy
 export CUDA_VISIBLE_DEVICES=1
 
 python -m vllm.entrypoints.openai.api_server \
-  --served-model-name qwen2.5-3b-instruct \
-  --model Qwen/Qwen2.5-3B-Instruct \
+  --served-model-name qwen2.5-14b-instruct \
+  --model Qwen/Qwen2.5-14B-Instruct \
   --host 0.0.0.0 \
   --port 8124 \
   --gpu-memory-utilization 0.88 \

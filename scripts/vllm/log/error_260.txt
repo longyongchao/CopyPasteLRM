@@ -1,1 +1,0 @@
-slurmstepd: error: *** JOB 260 ON gpunode3 CANCELLED AT 2025-11-13T19:02:26 ***
