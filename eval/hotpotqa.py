@@ -222,6 +222,15 @@ def load_hotpotqa_dataset():
         sys.exit(1)
 
 
+def log_result(result: dict):
+    """
+    格式化输出结果为Obsidian Yaml格式，方便记录
+    """
+    print("metrics:")
+    for key, value in result.items():
+        print(f"\t- {key}={value}")
+
+
 def eval(prediction_file):
     """
     主评估函数，执行完整的 HotpotQA 评估流程
@@ -333,7 +342,7 @@ def eval(prediction_file):
         metrics[k] /= prediction_count
 
     # 输出最终评估结果
-    print(metrics)
+    log_result(metrics)
 
 
 if __name__ == "__main__":
