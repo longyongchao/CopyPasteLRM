@@ -95,33 +95,33 @@ def format_sample(sample_id: str, sample_data: Dict[str, Any], dataset: Dict[str
     """
     predicted_answer, predicted_facts = extract_answer_and_facts(sample_data["predict"])
 
-    markdown = f"### 样本 {sample_id}\n\n"
+    markdown = f"#### 样本 {sample_id}\n\n"
 
     # Query
-    markdown += f"#### 问题\n\n{sample_data['query']}\n\n"
+    markdown += f"##### 问题\n\n{sample_data['query']}\n\n"
 
     # Context (截取前500字符以保持简洁)
     context = sample_data["context"]
-    markdown += f"#### 上下文\n\n{context}\n\n"
+    markdown += f"##### 上下文\n\n{context}\n\n"
 
     # Answer
-    markdown += f"#### 标准答案\n\n{sample_data['answer']}\n\n"
+    markdown += f"##### 标准答案\n\n{sample_data['answer']}\n\n"
 
     # Supporting Facts (如果有)
     if dataset and sample_id in dataset and "sfs" in dataset[sample_id]:
         sfs = dataset[sample_id]["sfs"]
-        markdown += "#### 支持事实\n\n"
+        markdown += "##### 支持事实\n\n"
         for i, sf in enumerate(sfs, 1):
             markdown += f"{i}. {sf}\n"
         markdown += "\n"
 
     # Predict
-    markdown += "#### 模型预测\n\n"
+    markdown += "##### 模型预测\n\n"
     predict_text = sample_data.get("predict", "")
     markdown += f"```\n{predict_text}\n```\n\n"
 
     # 提取的答案和事实
-    markdown += "#### 提取的信息\n\n"
+    markdown += "##### 提取的信息\n\n"
     markdown += f"- **提取的答案**: {predicted_answer if predicted_answer else '未提取到答案'}\n"
     markdown += f"- **提取的事实数量**: {len(predicted_facts)}\n"
     if predicted_facts:
@@ -160,41 +160,8 @@ def generate_obsidian_markdown_for_single(result: Dict[str, Any]):
     # 生成 YAML properties
     yaml_props = "---\n"
 
-    # 直接添加用户要求的字段
-    required_fields = {
-        "project": result.get("project", "CopyPasteLRM"),
-        "type": result.get("type", "Experiment"),
-        "method": result.get("method", "null"),
-        "dataset": result.get("dataset", "null"),
-        "eval git commit id": result.get("evel git commit id", "null"),
-        "infer git commit id": result.get("infer git commit id", "null"),
-        "swanLab id": result.get("swanlab id", "null"),
-        "result path": result.get("output file", "null"),
-        "infer start time": result.get("infer start time", "null"),
-        "infer end time": result.get("infer end time", "null"),
-        "prompt type": result.get("prompt type", "null"),
-        "prompt snapshot": result.get("prompt snapshot", "null"),
-        "temperature": result.get("temperature", "null"),
-        "top p": result.get("top p", "null"),
-        "server": result.get("server url", "null"),
-        "total samples": result.get("total samples", "null"),
-        "without answer only samples": result.get("without answer only samples", "null"),
-        "without facts only samples": result.get("without facts only samples", "null"),
-        "without answer and facts samples": result.get("without answer and facts samples", "null"),
-        "with answer and facts samples": result.get("with answer and facts samples", "null"),
-        "output file": result.get("output file", "null"),
-    }
-
-    # 写入所有字段
-    for key, value in required_fields.items():
-        if value:  # 只写入非空值
-            yaml_props += f"{key}: {value}\n"
-
-    # 添加 metrics
-    if "metrics" in result:
-        yaml_props += "metrics:\n"
-        for metric_name, metric_value in result["metrics"].items():
-            yaml_props += f"  {metric_name.strip()}: {metric_value}\n"
+    # 将result直接保持json的样式附加到yaml_props
+    yaml_props += f"{json.dumps(result, ensure_ascii=False, indent=2)}\n"
 
     yaml_props += "---\n\n"
 
