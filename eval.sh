@@ -1,5 +1,9 @@
 #!/bin/bash
 
+export HF_DATASETS_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+export HF_HUB_OFFLINE=1
+
 # 获取 results 文件夹中所有需要处理的 json 文件
 # 过滤条件：
 # 1. 文件名不以 _done.json 结尾
