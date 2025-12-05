@@ -16,9 +16,14 @@ for json_file in $(find results -name "*.json" ! -name "*_done.json" | sort); do
     if [ ! -f "$done_file" ]; then
         echo "处理文件: $json_file"
         python eval/eval.py "$json_file"
+
+        # 评估完成后，立即为该文件生成对应的 Markdown 文件
+        echo "为 $done_file 生成对应的 Markdown 文件..."
+        python eval/generate_obsidian_md.py --results-dir $(dirname "$done_file")
     else
         echo "跳过已处理的文件: $json_file (存在 $done_file)"
     fi
 done
 
 echo "所有 evaluation 任务完成！"
+echo "所有任务已完成！"

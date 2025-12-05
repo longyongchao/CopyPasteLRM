@@ -269,10 +269,9 @@ def main():
 
     args = parser.parse_args()
 
-    timestamp = int(threading.get_native_id())
-    server_url_clean = args.server_url.replace("http://", "").replace("https://", "").replace("/", "_")
+    timestamp = int(time.time())
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    output_file = f"results/{args.dataset}/{server_url_clean}-{model_name_clean}-temp={args.temperature}-topp={args.top_p}-prompt={args.prompt_type.replace(' ', '_')}-maxsamples={args.max_samples}-{timestamp}.json"
+    output_file = f"results/{args.dataset}/CopyPasteLRM-{model_name_clean}-temp={args.temperature}-topp={args.top_p}-prompt={args.prompt_type.replace(' ', '_')}-maxsamples={args.max_samples}-{timestamp}.json"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     run_inference(server_url=args.server_url, model_name=args.model_name, output_file=output_file, max_samples=args.max_samples, num_threads=args.num_threads, prompt_type=args.prompt_type, dataset_name=args.dataset, api_key=args.api_key, temperature=args.temperature, top_p=args.top_p)

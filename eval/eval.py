@@ -153,13 +153,11 @@ def eval(path: str):
         "temperature": info.get("temperature"),
         "top p": info.get("top_p"),
         "metrics": metrics,
-        "condition count": {
-            "total": prediction_count,
-            "without_answer_only": len(without_answer_ids - without_facts_ids),
-            "without_facts_only": len(without_facts_ids - without_answer_ids),
-            "without_answer_and_facts": len(without_answer_ids & without_facts_ids),
-            "with_answer_and_facts": prediction_count - len(without_answer_ids | without_facts_ids),
-        },
+        "total samples": prediction_count,
+        "without answer only samples": len(without_answer_ids - without_facts_ids),
+        "without facts only samples": len(without_facts_ids - without_answer_ids),
+        "without answer and facts samples": len(without_answer_ids & without_facts_ids),
+        "with answer and facts samples": prediction_count - len(without_answer_ids | without_facts_ids),
         "output file": path,
     }
 
