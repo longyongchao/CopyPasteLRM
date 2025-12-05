@@ -5,7 +5,7 @@ conda activate lyc
 export CUDA_VISIBLE_DEVICES=2,3
 
 python -m vllm.entrypoints.openai.api_server \
-  --served-model-name cplrm-qwen2.5-3b-instruct-step500 \
+  --served-model-name CopyPasteLRM-Qwen2.5-3B-Instruct-Full-HotpotQA-500 \
   --model  /mnt/lustre/DATA/longyongchao/ms-swift/output/CopyPasteLRM/v34-20251108-085932/best_ck_backup/checkpoint-500 \
   --host 0.0.0.0 \
   --port 8124 \

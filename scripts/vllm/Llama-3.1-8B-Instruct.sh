@@ -5,7 +5,7 @@ unset https_proxy
 export CUDA_VISIBLE_DEVICES=1
 
 python -m vllm.entrypoints.openai.api_server \
-  --served-model-name llama-3.1-8b-instruct \
+  --served-model-name Llama-3.1-8B-Instruct \
   --model meta-llama/Llama-3.1-8B-Instruct \
   --host 0.0.0.0 \
   --port 8124 \

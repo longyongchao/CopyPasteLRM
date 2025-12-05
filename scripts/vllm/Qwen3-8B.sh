@@ -5,7 +5,7 @@ unset https_proxy
 export CUDA_VISIBLE_DEVICES=0,1
 
 python -m vllm.entrypoints.openai.api_server \
-  --served-model-name qwen3-8b \
+  --served-model-name Qwen3-8B \
   --model Qwen/Qwen3-8B \
   --host 0.0.0.0 \
   --port 8124 \

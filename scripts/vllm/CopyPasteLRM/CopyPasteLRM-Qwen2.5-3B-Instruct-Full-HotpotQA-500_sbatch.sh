@@ -11,4 +11,4 @@
 #SBATCH --requeue                  		# 运行失败时重新排队
 
 # 运行Python脚本
-bash scripts/vllm/CopyPasteLRM/cplrm-qwen2_5-3b-instruct-full-checkpoint500.sh
+bash scripts/vllm/CopyPasteLRM/CopyPasteLRM-Qwen2.5-3B-Instruct-Full-HotpotQA-500.sh
