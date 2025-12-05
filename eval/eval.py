@@ -86,8 +86,8 @@ def eval(path: str):
         "joint_recall": 0,  # 联合召回率
     }
 
-    no_answer_count = 0
-    no_facts_count = 0
+    without_answer_ids = set()
+    without_facts_ids = set()
 
     # 遍历每个样本进行评估
     for id, item in data.items():
@@ -97,7 +97,7 @@ def eval(path: str):
 
         # 评估答案部分
         if predicted_answer is None:
-            no_answer_count += 1
+            without_answer_ids.add(id)
             can_eval_joint = False
         else:
             # 计算答案指标并更新
@@ -105,7 +105,7 @@ def eval(path: str):
 
         # 评估支持事实部分
         if len(predicted_facts) == 0 or id not in dataset:
-            no_facts_count += 1
+            without_facts_ids.add(id)
             can_eval_joint = False
         else:
             gold_supporting_facts = dataset[id].get("sfs", [])
@@ -138,8 +138,6 @@ def eval(path: str):
     for k in metrics.keys():
         metrics[k] /= prediction_count
 
-    print("no answer count:", no_answer_count)
-    print("no sfs count", no_facts_count)
     obsidian_card = {
         "project": "CopyPasteLRM",
         "type": "Experiment",
@@ -154,8 +152,14 @@ def eval(path: str):
         "prompt snapshot": info.get("prompt_snapshot"),
         "temperature": info.get("temperature"),
         "top p": info.get("top_p"),
-        "metrics": [f"{metric}={value}" for metric, value in metrics.items()],
-        "samples count": [f"total={prediction_count}", f"no_answer={no_answer_count}", f"no_facts={no_facts_count}"],
+        "metrics": metrics,
+        "condition count": {
+            "total": prediction_count,
+            "without_answer_only": len(without_answer_ids - without_facts_ids),
+            "without_facts_only": len(without_facts_ids - without_answer_ids),
+            "without_answer_and_facts": len(without_answer_ids & without_facts_ids),
+            "with_answer_and_facts": prediction_count - len(without_answer_ids | without_facts_ids),
+        },
         "output file": path,
     }
 
