@@ -1,0 +1,53 @@
+from typing import Any, Dict, List
+from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
+
+
+class HotpotQALoader(BaseDatasetLoader):
+    """https://huggingface.co/datasets/hotpotqa/hotpot_qa"""
+        
+    def __init__(self):
+        super().__init__(
+            dataset_path="hotpotqa/hotpot_qa",
+            dataset_name="distractor",
+            split="validation",
+            cache_path="cache/hotpotqa_distractor_validation.jsonl",
+            offline=True,
+        )
+    
+    def format_context(self, sample: Dict[str, Any]) -> str:
+        """
+        格式化上下文信息
+        
+        Args:
+            sample: 包含 title 和 sentences 的字典
+            
+        Returns:
+            str: 格式化后的上下文文本
+        """
+        context = sample["context"]
+        context_text = ""
+        for title, sentences in zip(context["title"], context["sentences"]):
+            context_text += f"{title}. " + "".join(sentences) + "\n"
+        return context_text
+    
+    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
+        """格式化支持事实"""
+        supporting_facts = sample["supporting_facts"]
+        context = sample["context"]
+        sfs = []
+        for title, sent_id in zip(supporting_facts["title"], supporting_facts["sent_id"]):
+            try:
+                sentences_idx = context["title"].index(title)
+                sf = context["sentences"][sentences_idx][sent_id]
+                sfs.append(sf.strip())
+            except:
+                print(f"Warning in formatting supporting facts: title={title}, sent_id={sent_id}")
+        return sfs
+
+if __name__ == "__main__":
+    loader = HotpotQALoader()
+    dataset = loader.dataset
+    print(f"数据集样本数: {len(loader.dataset)}")
+    loader.random_sample()
+
+
