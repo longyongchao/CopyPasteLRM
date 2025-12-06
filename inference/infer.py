@@ -261,7 +261,7 @@ def main():
     )
     parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
     parser.add_argument("--num-threads", type=int, default=32, help="并行推理的线程数量，默认为 4")
-    parser.add_argument("--prompt-type", type=str, default="reasoning with copy-paste", choices=["reasoning with copy-paste", "reasoning", "direct"], help="提示模板选择")
+    parser.add_argument("--prompt-type", type=str, default="direct", choices=["direct", "reasoning", "reasoning_with_copypaste"], help="提示模板选择")
     parser.add_argument("--dataset", type=str, default="hotpotqa", choices=["hotpotqa", "faitheval", "pubmedqa", "musique"], help="数据集名称，当前仅支持 hotpotqa")
     parser.add_argument("--api-key", type=str, default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh", help="API Key，用于访问 第三方 服务")
     parser.add_argument("--temperature", type=float, default=0.7, help="模型生成温度")
