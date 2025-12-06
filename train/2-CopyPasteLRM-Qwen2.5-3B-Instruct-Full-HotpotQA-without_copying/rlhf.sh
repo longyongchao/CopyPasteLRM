@@ -1,25 +1,16 @@
-#!/bin/bash
-
-. ../.env 
-
-CUDA_VISIBLE_DEVICES=1,2,3
-NPROC_PER_NODE=3
-
+CUDA_VISIBLE_DEVICES=0,1 \
+NPROC_PER_NODE=2 \
 swift rlhf \
     --rlhf_type grpo \
     --model Qwen/Qwen2.5-3B-Instruct \
     --model_type qwen2_5 \
     --external_plugins reward.py \
-    --reward_funcs copypaste_uni \
+    --reward_funcs copypaste_without_copying \
     --custom_register_path dataset.py \
     --train_type full \
     --use_hf true \
-    --use_vllm true \
-    --vllm_mode server \
-    --vllm_server_host 127.0.0.1 \
-    --vllm_server_port 8000 \
     --torch_dtype bfloat16 \
-    --dataset hotpot_qa \
+    --dataset 'hotpot_qa' \
     --split_dataset_ratio 0.005 \
     --load_from_cache_file true \
     --max_length 4096 \
@@ -29,23 +20,26 @@ swift rlhf \
     --per_device_eval_batch_size 16 \
     --learning_rate 5e-7 \
     --gradient_accumulation_steps 4 \
-    --eval_steps 50 \
-    --save_steps 50 \
+    --eval_steps 100 \
+    --save_steps 100 \
     --save_total_limit 10 \
     --logging_steps 1 \
-    --output_dir /mnt/lustre/DATA/longyongchao/ms-swift/output/CopyPasteLRM \
+    --output_dir /data/lyc/checkpoint/CopyPasteLRM \
     --warmup_ratio 0.01 \
     --dataloader_num_workers 4 \
     --num_generations 8 \
     --temperature 1.0 \
-    --system You are a helpful assistant. You first thinks about the reasoning process in the mind and then provides the user with the answer. \
+    --system 'You are a helpful assistant. You first thinks about the reasoning process in the mind and then provides the user with the answer.' \
     --deepspeed zero3 \
     --log_completions true \
     --log_entropy true \
     --report_to swanlab \
-    --swanlab_token $SWANLEB_TOKEN \
+    --swanlab_token eD9F8nh3oF5zAeyopbN8f \
     --swanlab_project CopyPasteLRM \
-    --swanlab_exp_name v0_0_3-qwen2_5-3B-Instruct \
+    --swanlab_exp_name Qwen2.5-3B-Instruct-Full-HotpotQA-without_copying \
+    --swanlab_lark_webhook_url https://open.feishu.cn/open-apis/bot/v2/hook/880e2480-71ed-4f29-8495-b7fa75c8cbd7 \
+    --swanlab_lark_secret IzE5LR2O7ojQkRUO9g96Qe \
     --swanlab_mode cloud \
     --beta 0.001 \
-    --num_iterations 1 \
+    --num_iterations 1
+
