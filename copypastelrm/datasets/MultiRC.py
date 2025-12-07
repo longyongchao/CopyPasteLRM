@@ -9,7 +9,7 @@ class MultiRC(BaseDatasetLoader):
         super().__init__(
             dataset_path="data/multirc/dev.json",
             split="dev",
-            cache_path="cache/multirc_dev.jsonl",
+            cache_path="data/cache/multirc_dev.jsonl",
             offline=True,
             reload=reload,
         )

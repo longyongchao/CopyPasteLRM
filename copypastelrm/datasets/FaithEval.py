@@ -9,7 +9,7 @@ class FaithEval(BaseDatasetLoader):
         super().__init__(
             dataset_path="Salesforce/FaithEval-counterfactual-v1.0",
             split="test",
-            cache_path="cache/faitheval_counterfactual_test.jsonl",
+            cache_path="data/cache/faitheval_counterfactual_test.jsonl",
             offline=True,
             reload=reload,
         )

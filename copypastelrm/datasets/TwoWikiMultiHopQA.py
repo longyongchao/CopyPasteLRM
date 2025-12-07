@@ -8,7 +8,7 @@ class TwoWikiMultihopQA(BaseDatasetLoader):
         super().__init__(
             dataset_path="data/2WikiMultihopQA/dev.json",
             split="dev",
-            cache_path="cache/2WikiMultihopQA_dev.jsonl",
+            cache_path="data/cache/2WikiMultihopQA_dev.jsonl",
             offline=True,
             reload=reload
         )

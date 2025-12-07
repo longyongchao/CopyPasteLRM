@@ -10,7 +10,7 @@ class HotpotQA(BaseDatasetLoader):
             dataset_path="hotpotqa/hotpot_qa",
             dataset_name="distractor",
             split="validation",
-            cache_path="cache/hotpotqa_distractor_validation.jsonl",
+            cache_path="data/cache/hotpotqa_distractor_validation.jsonl",
             offline=True,
             reload=reload,
         )

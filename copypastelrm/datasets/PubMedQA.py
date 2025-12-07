@@ -10,7 +10,7 @@ class PubMedQA(BaseDatasetLoader):
             dataset_path="qiaojin/PubMedQA",
             dataset_name="pqa_labeled",
             split="train",
-            cache_path="cache/pubmedqa_pqa_labeled_train.jsonl",
+            cache_path="data/cache/pubmedqa_pqa_labeled_train.jsonl",
             offline=True,
             reload=reload
         )

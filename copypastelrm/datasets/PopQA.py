@@ -10,7 +10,7 @@ class PopQA(BaseDatasetLoader):
         super().__init__(
             dataset_path="Atipico1/popQA",
             split="test",
-            cache_path="cache/popqa_test.jsonl",
+            cache_path="data/cache/popqa_test.jsonl",
             offline=True,
             reload=reload,
         )

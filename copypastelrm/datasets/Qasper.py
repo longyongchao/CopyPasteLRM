@@ -10,7 +10,7 @@ class Qasper(BaseDatasetLoader):
         super().__init__(
             dataset_path="allenai/qasper",
             split="test",
-            cache_path="cache/qasper_test.jsonl",
+            cache_path="data/cache/qasper_test.jsonl",
             offline=True,
             reload=reload,
         )

@@ -9,7 +9,7 @@ class MuSiQue(BaseDatasetLoader):
         super().__init__(
             dataset_path="dgslibisey/MuSiQue",
             split="validation",
-            cache_path="cache/musique_validation.jsonl",
+            cache_path="data/cache/musique_validation.jsonl",
             offline=True,
             reload=reload,
         )
