@@ -11,3 +11,5 @@ htmlcov/
 log/*
 
 results/*
+
+data/
