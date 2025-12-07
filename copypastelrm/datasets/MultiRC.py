@@ -5,13 +5,14 @@ import re
 
 
 class MultiRC(BaseDatasetLoader):
-    def __init__(self, reload: bool = False):
+    def __init__(self, reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="data/multirc/dev.json",
             split="dev",
-            cache_path="data/cache/multirc_dev.jsonl",
+            name="multirc_dev",
             offline=True,
             reload=reload,
+            max_samples=max_samples
         )
     
     def extract_sentences_with_regex(self, input_text: str) -> dict:

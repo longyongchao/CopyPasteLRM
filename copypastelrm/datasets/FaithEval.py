@@ -1,17 +1,16 @@
-import json
 from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
-import re
 
 
 class FaithEval(BaseDatasetLoader):
-    def __init__(self, reload: bool = False):
+    def __init__(self, reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="Salesforce/FaithEval-counterfactual-v1.0",
             split="test",
-            cache_path="data/cache/faitheval_counterfactual_test.jsonl",
+            name='faitheval_counterfactual_test',
             offline=True,
             reload=reload,
+            max_samples=max_samples
         )
     
 

@@ -6,13 +6,14 @@ from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 class PopQA(BaseDatasetLoader):
     """非官方来源：https://huggingface.co/datasets/Atipico1/popQA"""
 
-    def __init__(self, reload: bool = False):
+    def __init__(self, reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="Atipico1/popQA",
             split="test",
-            cache_path="data/cache/popqa_test.jsonl",
+            name="popqa_test",
             offline=True,
             reload=reload,
+            max_samples=max_samples
         )
 
     def format_answer(self, sample) -> List[str]:

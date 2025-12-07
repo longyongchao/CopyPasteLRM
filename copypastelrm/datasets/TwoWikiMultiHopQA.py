@@ -4,13 +4,14 @@ from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 
 
 class TwoWikiMultihopQA(BaseDatasetLoader):
-    def __init__(self, reload: str = False):
+    def __init__(self, reload: str = False, max_samples: int = -1):
         super().__init__(
             dataset_path="data/2WikiMultihopQA/dev.json",
             split="dev",
-            cache_path="data/cache/2WikiMultihopQA_dev.jsonl",
+            name="2WikiMultihopQA_dev",
             offline=True,
-            reload=reload
+            reload=reload,
+            max_samples=max_samples
         )
     
     def download_dataset(self):

@@ -16,10 +16,14 @@ class BaseDatasetLoader(ABC):
         self, 
         dataset_path: str, 
         split: str, 
-        cache_path: str,  # 缓存路径
+        name: str,
+        rename: bool = True,
+        cache_dir: str = "data/cache/",  # 缓存路径
         dataset_name: Optional[str] = None, 
         offline: bool = True,
-        reload: bool = False
+        reload: bool = False,
+        format: bool = True,
+        max_samples: int = -1,
     ):
         """
         初始化数据集加载器
@@ -34,16 +38,30 @@ class BaseDatasetLoader(ABC):
         self.dataset_name = dataset_name
         self.split = split
         self.offline = offline
-        self.cache_path = cache_path
         self.reload = reload
+        self.name = name
+        self.format = format # 是否格式化数据集
+        self.cache_path = cache_dir + f"{self.name}.jsonl"
+        self.rename = rename
 
         # 检查cache_path是否以.jsonl结尾
         if self.cache_path:
             if not self.cache_path.endswith('.jsonl'):
                 raise ValueError("cache_path must end with .jsonl")
+        
+        self.dataset_list = None
 
         self.dataset = self.get_dataset()
+
+        if max_samples > 0 and max_samples < self.get_length():
+            self.dataset_list = random.sample(self.dataset_list, max_samples)
+            self.dataset_dict = {}
+            for sample in self.dataset_list:
+                self.dataset_dict[sample["id"]] = sample
+            self.dataset = self.dataset_dict
     
+        assert len(self.dataset_list) == len(self.dataset), "数据集列表和字典长度不一致"
+
     def download_dataset(self) -> List[Dict[str, Any]]:
         """默认从huggingface下载数据"""
         print(f"正在加载 {self.dataset_path} 数据集...")
@@ -76,20 +94,24 @@ class BaseDatasetLoader(ABC):
             with open(self.cache_path, 'r') as f:
                 print(f"🎯Loading dataset from cache: {self.cache_path}")
                 formatted_dataset_list = json.load(f)
+                self.dataset_list = formatted_dataset_list
                 dataset_dict = {}
                 for sample in formatted_dataset_list:
                     dataset_dict[sample["id"]] = sample
                 return dataset_dict
         
         dataset = self.download_dataset()
-        
+
         formatted_dataset_dict = {}
         formatted_dataset_list = []
         
         iterator = tqdm(dataset, desc="Formatting dataset", unit="sample")
         
         for sample in iterator:
-            formatted_sample = self.format_sample(sample)
+            if self.format:
+                formatted_sample = self.format_sample(sample)
+            else:
+                formatted_sample = sample
             formatted_dataset_list.append(formatted_sample)
             formatted_dataset_dict[formatted_sample["id"]] = formatted_sample
         
@@ -99,6 +121,8 @@ class BaseDatasetLoader(ABC):
             with open(self.cache_path, 'w') as f:
                 print(f"Saving formatted dataset to cache: {self.cache_path}")
                 json.dump(list(formatted_dataset_dict.values()), f, ensure_ascii=False, indent=4)
+
+        self.dataset_list = formatted_dataset_list
 
         return formatted_dataset_dict
     
@@ -112,13 +136,18 @@ class BaseDatasetLoader(ABC):
         Returns:
             Dict[str, Any]: 格式化后的数据样本
         """
-        return {
+        formatted_sample = {
             "id": self.format_id(sample),
             "query": self.format_query(sample),
             "context": self.format_context(sample),
             "answer": self.format_answer(sample),
             "sfs": self.format_supporting_facts(sample),
         }
+
+        if self.rename:
+            formatted_sample['dataset'] = self.name
+
+        return formatted_sample
 
     def format_id(self, sample: Dict[str, Any]) -> str:
         """
@@ -214,7 +243,7 @@ class BaseDatasetLoader(ABC):
         """
         return len(self.dataset)
     
-    def get_sample(self, sample_id: str) -> Dict[str, Any]:
+    def get_sample(self, sample_id = None) -> Dict[str, Any]:
         """
         根据样本 ID 获取样本
         
@@ -224,6 +253,10 @@ class BaseDatasetLoader(ABC):
         Returns:
             Dict[str, Any]: 样本数据
         """
+        if sample_id:
+            return self.dataset[sample_id]
+        else:
+            sample_id = random.choice(list(self.dataset.keys()))
         return self.dataset.get(sample_id, None)
     
     def random_sample(self) -> Dict[str, Any]:

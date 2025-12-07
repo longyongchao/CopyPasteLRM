@@ -6,13 +6,14 @@ from datasets import load_dataset
 class Qasper(BaseDatasetLoader):
     """https://huggingface.co/datasets/allenai/qasper"""
 
-    def __init__(self, reload: bool = False):
+    def __init__(self, reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="allenai/qasper",
             split="test",
-            cache_path="data/cache/qasper_test.jsonl",
+            name="qasper_test",
             offline=True,
             reload=reload,
+            max_samples=max_samples
         )
 
     def download_dataset(self) -> List[Dict[str, Any]]:

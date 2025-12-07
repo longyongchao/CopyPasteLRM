@@ -1,3 +1,4 @@
+from .BaseDatasetLoader import BaseDatasetLoader
 from .FaithEval import FaithEval
 from .HotpotQA import HotpotQA
 from .Qasper import Qasper
@@ -6,6 +7,7 @@ from .PopQA import PopQA
 from .PubMedQA import PubMedQA
 from .TwoWikiMultiHopQA import TwoWikiMultihopQA
 from .MuSiQue import MuSiQue
+from .CopyPaste import CopyPaste
 
 from enum import Enum
 
