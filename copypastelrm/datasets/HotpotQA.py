@@ -2,16 +2,17 @@ from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 
 
-class HotpotQALoader(BaseDatasetLoader):
+class HotpotQA(BaseDatasetLoader):
     """https://huggingface.co/datasets/hotpotqa/hotpot_qa"""
         
-    def __init__(self):
+    def __init__(self, reload: str=False):
         super().__init__(
             dataset_path="hotpotqa/hotpot_qa",
             dataset_name="distractor",
             split="validation",
             cache_path="cache/hotpotqa_distractor_validation.jsonl",
             offline=True,
+            reload=reload,
         )
     
     def format_context(self, sample: Dict[str, Any]) -> str:
@@ -45,7 +46,7 @@ class HotpotQALoader(BaseDatasetLoader):
         return sfs
 
 if __name__ == "__main__":
-    loader = HotpotQALoader()
+    loader = HotpotQA(reload=True)
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
     loader.random_sample()
