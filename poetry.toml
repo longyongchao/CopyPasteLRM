@@ -1,0 +1,5 @@
+[repositories.tsinghua]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+
+[repositories.aliyun]
+url = "https://mirrors.aliyun.com/pypi/simple/"
