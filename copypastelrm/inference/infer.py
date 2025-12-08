@@ -369,7 +369,7 @@ def main():
 
     timestamp = int(time.time())
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    output_file = f"results/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}-tpp_{args.top_p}/{model_name_clean}/{args.dataset}/enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
+    output_file = f"results/infer/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}-tpp_{args.top_p}/{model_name_clean}/{args.dataset}/enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     run_inference(

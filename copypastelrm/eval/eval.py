@@ -183,7 +183,9 @@ def eval(path: str):
     }
 
 
-    with open(path.replace(".json", "_done.json"), "w", encoding="utf-8") as f:
+    output_file = path.replace("results/infer", "results/eval")
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=2)
 
     # 输出最终评估结果
@@ -192,11 +194,11 @@ def eval(path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluation Script")
-    parser.add_argument("path", default="results/popqa/CopyPasteLRM-DeepSeek-R1-Distill-Qwen-7B-temp=0.7-topp=0.95-prompt=reasoning-maxsamples=1000-1765113802.json", required=False)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Evaluation Script")
+    # parser.add_argument("path", default="results/popqa/CopyPasteLRM-DeepSeek-R1-Distill-Qwen-7B-temp=0.7-topp=0.95-prompt=reasoning-maxsamples=1000-1765113802.json", required=False)
+    # args = parser.parse_args()
 
-    eval(args.path)
+    eval('results/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen3-8B/copypaste/prompt_direct-1765130137.json')
 
 if __name__ == "__main__":
     main()
