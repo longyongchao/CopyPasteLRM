@@ -12,7 +12,7 @@ if project_root not in sys.path:
 
 from copypastelrm.metrics.HotpotQA import update_answer, update_sp
 
-from copypastelrm.metrics.utils import extract_answer_and_facts
+from copypastelrm.metrics.utils import extract_answer_and_facts, extract_answer_and_facts_old
 
 from utils.git import get_git_commit_id
 
@@ -88,6 +88,7 @@ def eval(path: str):
     # 遍历每个样本进行评估
     for id, item in data.items():
         can_eval_joint = True  # 标记是否可以计算联合指标
+        prompt_type = info.get("prompt_type")
 
         subset = item.get("dataset")
 
@@ -104,7 +105,10 @@ def eval(path: str):
             metrics_by_subset[subset]['predict_length'] += len(item['predict'])
             metrics_by_subset[subset]['predict_length_word'] += len(item['predict'].split())
 
-        predicted_answer, predicted_facts = extract_answer_and_facts(item["predict"])
+        if "old" in prompt_type:
+            predicted_answer, predicted_facts = extract_answer_and_facts_old(item["predict"])
+        else:
+            predicted_answer, predicted_facts = extract_answer_and_facts(item["predict"])
 
         if predicted_answer:
             metrics_by_subset[subset]['answer_length'] += len(predicted_answer)
@@ -213,7 +217,7 @@ def eval(path: str):
 
     # 输出最终评估结果
     # log_result(metrics)
-    # print(json.dumps(res, ensure_ascii=False, indent=2))
+    print(json.dumps(res, ensure_ascii=False, indent=2))
 
 
 def main():
@@ -222,6 +226,7 @@ def main():
     args = parser.parse_args()
 
     eval(args.path)
+    # eval('results/infer/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen2.5-3B-Instruct/copypaste/enable_thinking_False-prompt_reasoning_with_copypaste_old-1765207378.json')
 
 if __name__ == "__main__":
     main()
