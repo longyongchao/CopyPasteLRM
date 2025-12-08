@@ -360,7 +360,7 @@ def main():
     parser.add_argument("--top-p", type=float, default=0.95, help="模型生成 top-p 采样")
     parser.add_argument("--seed", type=int, default=42, help="模型生成 top-p 采样")
     parser.add_argument(
-        "--enable-thinking", type=bool, default=False, help="是否启用思考过程"
+        "--enable-thinking", action="store_true", help="是否启用思考"
     )
 
     args = parser.parse_args()

@@ -6,18 +6,17 @@ datasets=("copypaste")
 
 # 定义要循环的 prompt_type 列表
 # prompt_types=("reasoning_with_copypaste")
-prompt_types=("direct" "reasoning" "reasoning_with_copypaste")
+prompt_types=("direct" "reasoning" "reasoning_with_copypaste" "reasoning_with_copypaste_old")
 
 # 定义重复次数，默认为3次
-repeat_times=3
+repeat_times=1
 
 server_url="http://localhost:8124/v1"
 # server_url="https://api.siliconflow.cn/v1"
-num_threads=15
-# model_name="Qwen2.5-3B-Instruct"
-model_name="Qwen3-8B"
-max_samples=1000
-enable_thinking=true
+num_threads=128
+model_name="Qwen2.5-3B-Instruct"
+# model_name="Qwen3-8B"
+max_samples=-1
 
 # 计算总任务数
 total_tasks=$((repeat_times * ${#prompt_types[@]} * ${#datasets[@]}))
@@ -55,7 +54,7 @@ for ((i=1; i<=repeat_times; i++)); do
                 --prompt-type "$prompt_type" \
                 --dataset "$dataset" \
                 --max-samples $max_samples \
-                --enable-thinking $enable_thinking
+                # --enable-thinking $enable_thinking
 
             echo "数据集 $dataset 推理完成 [$current_task/$total_tasks]"
             echo "--------------------------------"
