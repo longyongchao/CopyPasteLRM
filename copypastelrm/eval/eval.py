@@ -71,6 +71,8 @@ def eval(path: str):
         "count": 0,
         "without_answer_ids": [],
         "without_facts_ids": [],
+        "predict_length": 0,
+        "answer_length": 0,
     }
 
     metrics_by_subset = {}
@@ -86,7 +88,13 @@ def eval(path: str):
 
         metrics_by_subset[subset]["count"] += 1
 
+        if item['predict']:
+            metrics_by_subset[subset]['predict_length'] += len(item['predict'])
+
         predicted_answer, predicted_facts = extract_answer_and_facts(item["predict"])
+
+        if predicted_answer:
+            metrics_by_subset[subset]['answer_length'] += len(predicted_answer)
 
         gold_answers = None
         if isinstance(item["answer"], list):
@@ -194,11 +202,11 @@ def eval(path: str):
 
 
 def main():
-    # parser = argparse.ArgumentParser(description="Evaluation Script")
-    # parser.add_argument("path", default="results/popqa/CopyPasteLRM-DeepSeek-R1-Distill-Qwen-7B-temp=0.7-topp=0.95-prompt=reasoning-maxsamples=1000-1765113802.json", required=False)
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="Evaluation Script")
+    parser.add_argument("path")
+    args = parser.parse_args()
 
-    eval('results/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen3-8B/copypaste/prompt_direct-1765130137.json')
+    eval(args.path)
 
 if __name__ == "__main__":
     main()
