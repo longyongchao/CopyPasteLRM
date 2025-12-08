@@ -20,8 +20,8 @@ for json_file in $(find results/infer -name "*.json" ! -name "*_done.json" | sor
         python copypastelrm/eval/eval.py "$json_file"
 
         # 评估完成后，立即为该文件生成对应的 Markdown 文件
-        # echo "为 $done_file 生成对应的 Markdown 文件..."
-        # python eval/generate_obsidian_md.py --results-dir $(dirname "$done_file")
+        echo "为 $done_file 生成对应的 Markdown 文件..."
+        python copypastelrm/eval/generate_obsidian_record.py --results-dir results/eval
     else
         echo "跳过已处理的文件: $json_file (存在 $done_file)"
     fi

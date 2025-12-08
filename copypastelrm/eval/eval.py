@@ -43,6 +43,10 @@ def eval(path: str):
     # 加载预测结果文件
     with open(path) as f:
         prediction = json.load(f)
+    
+    if 'info' not in prediction:
+        print('😬 尚未推理完成，跳过:', path)
+        return None
 
     info = prediction.get("info")
     dataset_name = info.get("dataset")
@@ -71,8 +75,12 @@ def eval(path: str):
         "count": 0,
         "without_answer_ids": [],
         "without_facts_ids": [],
+        "context_length": 0,
+        "context_length_word": 0,
         "predict_length": 0,
+        "predict_length_word": 0,
         "answer_length": 0,
+        "answer_length_word": 0
     }
 
     metrics_by_subset = {}
@@ -88,13 +96,19 @@ def eval(path: str):
 
         metrics_by_subset[subset]["count"] += 1
 
+        if item['context']:
+            metrics_by_subset[subset]['context_length'] += len(item['context'])
+            metrics_by_subset[subset]['context_length_word'] += len(item['context'].split())
+
         if item['predict']:
             metrics_by_subset[subset]['predict_length'] += len(item['predict'])
+            metrics_by_subset[subset]['predict_length_word'] += len(item['predict'].split())
 
         predicted_answer, predicted_facts = extract_answer_and_facts(item["predict"])
 
         if predicted_answer:
             metrics_by_subset[subset]['answer_length'] += len(predicted_answer)
+            metrics_by_subset[subset]['answer_length_word'] += len(predicted_answer.split())
 
         gold_answers = None
         if isinstance(item["answer"], list):
@@ -195,10 +209,11 @@ def eval(path: str):
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(res, f, ensure_ascii=False, indent=2)
+    print(f"✅ Eval results saved to {output_file}")
 
     # 输出最终评估结果
     # log_result(metrics)
-    print(json.dumps(res, ensure_ascii=False, indent=2))
+    # print(json.dumps(res, ensure_ascii=False, indent=2))
 
 
 def main():
