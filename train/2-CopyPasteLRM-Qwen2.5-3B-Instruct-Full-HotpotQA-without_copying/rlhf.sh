@@ -1,5 +1,5 @@
-CUDA_VISIBLE_DEVICES=0,1 \
-NPROC_PER_NODE=2 \
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+NPROC_PER_NODE=4 \
 swift rlhf \
     --rlhf_type grpo \
     --model Qwen/Qwen2.5-3B-Instruct \
@@ -24,7 +24,7 @@ swift rlhf \
     --save_steps 100 \
     --save_total_limit 10 \
     --logging_steps 1 \
-    --output_dir /data/lyc/checkpoint/CopyPasteLRM \
+    --output_dir /mnt/lustre/DATA/longyongchao/CopyPasteLRM \
     --warmup_ratio 0.01 \
     --dataloader_num_workers 4 \
     --num_generations 8 \
