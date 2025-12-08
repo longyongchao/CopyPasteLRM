@@ -6,10 +6,10 @@ datasets=("copypaste")
 
 # 定义要循环的 prompt_type 列表
 # prompt_types=("reasoning_with_copypaste")
-prompt_types=("direct" "reasoning" "reasoning_with_copypaste")
+prompt_types=("direct" "reasoning" "reasoning_with_copypaste" "reasoning_with_copypaste_old")
 
 # 定义重复次数，默认为3次
-repeat_times=3
+repeat_times=1
 
 server_url="http://localhost:8124/v1"
 # server_url="https://api.siliconflow.cn/v1"
