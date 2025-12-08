@@ -117,7 +117,7 @@ def eval(path: str):
             without_facts_ids.add(id)
             can_eval_joint = False
         else:
-            gold_supporting_facts = item.get('sfs', [])
+            gold_supporting_facts = item['sfs']
             # 计算支持事实指标并更新
             sp_em, sp_prec, sp_recall = update_sp(metrics, predicted_facts, gold_supporting_facts)
 
