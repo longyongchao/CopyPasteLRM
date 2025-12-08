@@ -11,3 +11,8 @@ htmlcov/
 log/*
 
 results/*
+
+data/
+
+.poetry/
+poetry.lock

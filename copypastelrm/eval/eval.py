@@ -1,23 +1,7 @@
-"""
-HotpotQA 评估脚本
-
-该脚本用于评估模型在 HotpotQA 数据集上的性能。
-HotpotQA 是一个多跳问答数据集，需要模型回答问题并提供支持事实。
-
-评估指标包括：
-1. 答案准确性：精确匹配(EM)、F1分数、精确率、召回率
-2. 支持事实准确性：SP_EM、SP_F1、SP_Precision、SP_Recall
-3. 联合评估：同时考虑答案和支持事实的综合表现
-
-使用方法：
-python eval/hotpotqa.py prediction.json
-
-注意：标准答案数据会自动从 HuggingFace 的 hotpotqa/hotpot_qa 数据集的 distractor 子集 validation split 中加载
-"""
-
 import argparse
 import os
 import sys
+import copy
 
 import ujson as json  # 使用更快的 ujson 库处理 JSON
 
@@ -26,9 +10,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from eval.hotpotqa_metric import update_answer, update_sp
-from eval.utils import extract_answer_and_facts
-from load_datasets.load import data_loader
+from copypastelrm.metrics.HotpotQA import update_answer, update_sp
+
+from copypastelrm.metrics.utils import extract_answer_and_facts
+
 from utils.git import get_git_commit_id
 
 
@@ -62,8 +47,6 @@ def eval(path: str):
     info = prediction.get("info")
     dataset_name = info.get("dataset")
 
-    dataset = data_loader(dataset_name, mode="dict")
-
     data = prediction.get("data")
 
     # 初始化所有评估指标
@@ -84,33 +67,56 @@ def eval(path: str):
         "joint_f1": 0,  # 联合 F1 分数
         "joint_prec": 0,  # 联合精确率
         "joint_recall": 0,  # 联合召回率
+        # count
+        "count": 0,
+        "without_answer_ids": [],
+        "without_facts_ids": [],
     }
 
-    without_answer_ids = set()
-    without_facts_ids = set()
+    metrics_by_subset = {}
 
     # 遍历每个样本进行评估
     for id, item in data.items():
         can_eval_joint = True  # 标记是否可以计算联合指标
 
+        subset = item.get("dataset")
+
+        if subset not in metrics_by_subset:
+            metrics_by_subset[subset] = copy.deepcopy(metrics)
+
+        metrics_by_subset[subset]["count"] += 1
+
         predicted_answer, predicted_facts = extract_answer_and_facts(item["predict"])
+
+        gold_answers = None
+        if isinstance(item["answer"], list):
+            if len(item["answer"]) == 0:
+                predicted_answer = None
+            else:
+                gold_answers = item["answer"]
+        elif isinstance(item["answer"], str):
+            gold_answers = [item["answer"]]
 
         # 评估答案部分
         if predicted_answer is None:
-            without_answer_ids.add(id)
+            metrics_by_subset[subset]["without_answer_ids"].append(id)
             can_eval_joint = False
         else:
             # 计算答案指标并更新
-            em, prec, recall = update_answer(metrics, predicted_answer, item["answer"])
+            em, prec, recall = update_answer(
+                metrics_by_subset[subset], predicted_answer, gold_answers
+            )
 
         # 评估支持事实部分
-        if len(predicted_facts) == 0 or id not in dataset:
-            without_facts_ids.add(id)
+        if len(predicted_facts) == 0:
+            metrics_by_subset[subset]["without_facts_ids"].append(id)
             can_eval_joint = False
         else:
-            gold_supporting_facts = dataset[id].get("sfs", [])
+            gold_supporting_facts = item["sfs"]
             # 计算支持事实指标并更新
-            sp_em, sp_prec, sp_recall = update_sp(metrics, predicted_facts, gold_supporting_facts)
+            sp_em, sp_prec, sp_recall = update_sp(
+                metrics_by_subset[subset], predicted_facts, gold_supporting_facts
+            )
 
         # 计算联合指标（只有当答案和支持事实都存在时才计算）
         if can_eval_joint:
@@ -127,18 +133,37 @@ def eval(path: str):
             joint_em = em * sp_em
 
             # 累加联合指标
-            metrics["joint_em"] += joint_em
-            metrics["joint_f1"] += joint_f1
-            metrics["joint_prec"] += joint_prec
-            metrics["joint_recall"] += joint_recall
-
-    prediction_count = len(data)  # 使用预测数据的样本数量作为分母
+            metrics_by_subset[subset]["joint_em"] += joint_em
+            metrics_by_subset[subset]["joint_f1"] += joint_f1
+            metrics_by_subset[subset]["joint_prec"] += joint_prec
+            metrics_by_subset[subset]["joint_recall"] += joint_recall
 
     # 使用预测数量作为分母计算平均指标
-    for k in metrics.keys():
-        metrics[k] /= prediction_count
+    for subset, subset_metrics in metrics_by_subset.items():
+        prediction_count = subset_metrics["count"]
+        for k in subset_metrics.keys():
+            if k != "without_answer_ids" and k != "without_facts_ids" and k != "count":
+                subset_metrics[k] /= prediction_count
+        
+        without_answer_ids_set = set(subset_metrics["without_answer_ids"])
+        without_facts_ids_set = set(subset_metrics["without_facts_ids"])
+        subset_metrics["without answer only samples"] = len(
+            without_answer_ids_set - without_facts_ids_set
+        )
+        subset_metrics["without facts only samples"] = len(
+            without_facts_ids_set - without_answer_ids_set
+        )
+        subset_metrics["without answer and facts samples"] = len(
+            without_answer_ids_set & without_facts_ids_set
+        )
+        subset_metrics["with answer and facts samples"] = prediction_count - len(
+            without_answer_ids_set | without_facts_ids_set
+        )
 
-    obsidian_card = {
+        subset_metrics["without_answer_ids"] = len(subset_metrics["without_answer_ids"])
+        subset_metrics["without_facts_ids"] = len(subset_metrics["without_facts_ids"])
+
+    res = {
         "project": "CopyPasteLRM",
         "type": "Experiment",
         "method": info["model_name"],
@@ -152,31 +177,28 @@ def eval(path: str):
         "prompt snapshot": info.get("prompt_snapshot"),
         "temperature": info.get("temperature"),
         "top p": info.get("top_p"),
-        "metrics": metrics,
-        "total samples": prediction_count,
-        "without answer only samples": len(without_answer_ids - without_facts_ids),
-        "without facts only samples": len(without_facts_ids - without_answer_ids),
-        "without answer and facts samples": len(without_answer_ids & without_facts_ids),
-        "with answer and facts samples": prediction_count - len(without_answer_ids | without_facts_ids),
+        "metrics": metrics_by_subset,
+        "total samples": len(data),
         "output file": path,
     }
 
-    prediction["eval_info"] = obsidian_card
 
-    with open(path.replace(".json", "_done.json"), "w", encoding="utf-8") as f:
-        json.dump(obsidian_card, f, ensure_ascii=False, indent=2)
+    output_file = path.replace("results/infer", "results/eval")
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(res, f, ensure_ascii=False, indent=2)
 
     # 输出最终评估结果
-    log_result(metrics)
+    # log_result(metrics)
+    print(json.dumps(res, ensure_ascii=False, indent=2))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluation Script")
-    parser.add_argument("path", default="/home/lyc/projects/CopyPasteLRM/results/hotpotqa/localhost:8124_v1-qwen2.5-3b-instruct-temp=0.7-topp=0.95-prompt=reasoning_with_copy-paste-maxsamples=None-1133230.json", type=str, help="Path to the prediction JSON file")
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Evaluation Script")
+    # parser.add_argument("path", default="results/popqa/CopyPasteLRM-DeepSeek-R1-Distill-Qwen-7B-temp=0.7-topp=0.95-prompt=reasoning-maxsamples=1000-1765113802.json", required=False)
+    # args = parser.parse_args()
 
-    eval(args.path)
-
+    eval('results/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen3-8B/copypaste/prompt_direct-1765130137.json')
 
 if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@
 unset http_proxy
 unset https_proxy
 
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=0,1
 
 python -m vllm.entrypoints.openai.api_server \
   --served-model-name DeepSeek-R1-Distill-Qwen-7B \
@@ -10,8 +10,8 @@ python -m vllm.entrypoints.openai.api_server \
   --host 0.0.0.0 \
   --port 8124 \
   --gpu-memory-utilization 0.88 \
-  --max-model-len 8192 \
+  --max-model-len 32768 \
   --max-num-seqs 32 \
-  --tensor-parallel-size 1 \
+  --tensor-parallel-size 2 \
   --disable-log-requests \
   --disable-log-stats

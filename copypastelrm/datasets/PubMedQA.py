@@ -2,23 +2,25 @@ from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 
 
-class PubMedQALoader(BaseDatasetLoader):
+class PubMedQA(BaseDatasetLoader):
     """https://huggingface.co/datasets/qiaojin/PubMedQA"""
         
-    def __init__(self):
+    def __init__(self, reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="qiaojin/PubMedQA",
             dataset_name="pqa_labeled",
             split="train",
-            cache_path="cache/pubmedqa_pqa_labeled_train.jsonl",
+            name='pubmedqa_pqa_labeled_train',
             offline=True,
+            reload=reload,
+            max_samples=max_samples
         )
     
     def format_id(self, sample):
         return str(sample['pubid'])
     
     def format_answer(self, sample: Dict[str, Any]) -> str:
-        return sample['final_decision']
+        return [sample['final_decision']]
     
     def format_context(self, sample: Dict[str, Any]) -> str:
         """
@@ -42,7 +44,7 @@ class PubMedQALoader(BaseDatasetLoader):
         return []
 
 if __name__ == "__main__":
-    loader = PubMedQALoader()
+    loader = PubMedQA(reload=True)
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
     loader.random_sample()

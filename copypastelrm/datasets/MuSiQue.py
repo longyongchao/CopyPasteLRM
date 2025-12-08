@@ -5,12 +5,14 @@ from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 class MuSiQue(BaseDatasetLoader):
     """https://huggingface.co/datasets/dgslibisey/MuSiQue"""
         
-    def __init__(self):
+    def __init__(self, reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="dgslibisey/MuSiQue",
             split="validation",
-            cache_path="cache/musique_validation.jsonl",
+            name="musique_validation",
             offline=True,
+            reload=reload,
+            max_samples=max_samples
         )
     
     def format_answer(self, sample: Dict[str, Any]) -> List[str]:
@@ -39,7 +41,7 @@ class MuSiQue(BaseDatasetLoader):
         
 
 if __name__ == "__main__":
-    loader = MuSiQue()
+    loader = MuSiQue(reload=True)
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
     loader.random_sample()

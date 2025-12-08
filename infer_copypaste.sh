@@ -13,10 +13,10 @@ repeat_times=3
 
 server_url="http://localhost:8124/v1"
 # server_url="https://api.siliconflow.cn/v1"
-num_threads=15
+num_threads=128
 # model_name="Qwen2.5-3B-Instruct"
-model_name="Qwen3-8B"
-max_samples=1000
+model_name="CopyPasteLRM-Qwen2.5-3B-Instruct-Full-HotpotQA-500"
+max_samples=-1
 enable_thinking=true
 
 # 计算总任务数
