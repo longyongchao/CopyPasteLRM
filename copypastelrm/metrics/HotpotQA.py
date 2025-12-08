@@ -41,7 +41,7 @@ def normalize_answer(s):
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
 
-def f1_score(prediction, ground_truth):
+def f1_score(prediction, gold_answers):
     """
     计算预测答案与标准答案之间的 F1 分数
 
@@ -56,7 +56,7 @@ def f1_score(prediction, ground_truth):
     """
     # 标准化预测答案和标准答案
     normalized_prediction = normalize_answer(prediction)
-    normalized_ground_truth = normalize_answer(ground_truth)
+    normalized_ground_truth = normalize_answer(gold_answers)
 
     ZERO_METRIC = (0, 0, 0)  # 零分指标常量
 
@@ -88,7 +88,7 @@ def f1_score(prediction, ground_truth):
     return f1, precision, recall
 
 
-def exact_match_score(prediction, ground_truth):
+def exact_match_score(prediction, gold_answers):
     """
     计算精确匹配分数
 
@@ -101,10 +101,12 @@ def exact_match_score(prediction, ground_truth):
     Returns:
         bool: 如果完全匹配返回 True，否则返回 False
     """
-    return normalize_answer(prediction) == normalize_answer(ground_truth)
+    for gold_answer in gold_answers:
+        if normalize_answer(prediction) == normalize_answer(gold_answer):
+            return True
+    return False
 
-
-def judge_hit(prediction, ground_truth):
+def hit_score(prediction, gold_answers):
     """
     检查预测答案是否在标准答案中
 
@@ -117,37 +119,59 @@ def judge_hit(prediction, ground_truth):
     Returns:
         bool: 如果预测答案在标准答案中返回 True，否则返回 False
     """
-    return normalize_answer(ground_truth) in normalize_answer(prediction)
+    for gold_answer in gold_answers:
+        if normalize_answer(gold_answer) in normalize_answer(prediction):
+            return True
+    return False
 
 
-def update_answer(metrics, prediction, gold):
+def update_answer(metrics: dict, prediction: str, gold_answers: list[str]) -> tuple[float, float, float]:
     """
-    更新答案相关的评估指标
+    更新答案相关的评估指标。
 
-    计算单个样本的答案评估指标并累加到总指标中
+    计算单个样本的答案评估指标（精确匹配、F1、精确率、召回率）并累加到总指标中。
 
     Args:
-        metrics (dict): 存储累积指标的字典
-        prediction (str): 模型预测的答案
-        gold (str): 标准答案
+        metrics (dict): 存储累积指标的字典。
+        prediction (str): 模型预测的答案。
+        gold_answers (list[str]): 标准答案列表。
 
     Returns:
-        tuple: (em, prec, recall) - 精确匹配、精确率、召回率
+        tuple[float, float, float]: (em, precision, recall) - 精确匹配、精确率、召回率。
     """
-    # 计算精确匹配分数
-    em = exact_match_score(prediction, gold)
-    hit = judge_hit(prediction, gold)
-    # 计算 F1 分数、精确率、召回率
-    f1, prec, recall = f1_score(prediction, gold)
+    # 1. 计算精确匹配 (Exact Match, EM) 和命中分数 (Hit Score)
+    # 假设 exact_match_score 和 hit_score 内部已处理 gold_answers
+    em = exact_match_score(prediction, gold_answers)
+    hit = hit_score(prediction, gold_answers)
 
-    # 累加到总指标中
+    # 2. 计算 F1 分数、精确率、召回率
+    # 存储所有 (f1, precision, recall) 候选项
+    results_candidates = []
+    for gold in gold_answers:
+        # 假设 f1_score 函数返回 (f1, precision, recall)
+        f1_val, prec_val, recall_val = f1_score(prediction, gold)
+        results_candidates.append((f1_val, prec_val, recall_val))
+
+    # 3. 找到 F1 分数最高的组合作为最终结果
+    # 使用 max 函数和 key 参数，可以直接找到 F1 值最高的元组
+    # 元组的第一个元素是 F1 (索引 0)
+    if results_candidates:
+        best_f1, best_precision, best_recall = max(results_candidates, key=lambda x: x[0])
+    else:
+        # 如果 gold_answers 为空，设置指标为 0.0
+        best_f1, best_precision, best_recall = 0.0, 0.0, 0.0
+
+
+    # 4. 累加到总指标中
+    # 转换为 float 是好的做法，确保累加操作的类型一致性
     metrics["hit"] += float(hit)
     metrics["em"] += float(em)
-    metrics["f1"] += f1
-    metrics["prec"] += prec
-    metrics["recall"] += recall
+    metrics["f1"] += best_f1
+    metrics["prec"] += best_precision
+    metrics["recall"] += best_recall
 
-    return em, prec, recall
+    # 5. 返回最终结果
+    return float(em), best_precision, best_recall
 
 
 def update_sp(metrics, predict_sfs, gold_sfs):

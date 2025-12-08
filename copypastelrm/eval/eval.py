@@ -26,9 +26,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from eval.hotpotqa_metric import update_answer, update_sp
-from eval.utils import extract_answer_and_facts
-from load_datasets.load import data_loader
+from copypastelrm.metrics.HotpotQA import update_answer, update_sp
+
+from copypastelrm.metrics.utils import extract_answer_and_facts
+
 from utils.git import get_git_commit_id
 
 
@@ -62,8 +63,6 @@ def eval(path: str):
     info = prediction.get("info")
     dataset_name = info.get("dataset")
 
-    dataset = data_loader(dataset_name, mode="dict")
-
     data = prediction.get("data")
 
     # 初始化所有评估指标
@@ -95,20 +94,30 @@ def eval(path: str):
 
         predicted_answer, predicted_facts = extract_answer_and_facts(item["predict"])
 
+        gold_answers = None
+        if isinstance(item['answer'], list):
+            if len(item["answer"]) == 0:
+                predicted_answer = None
+            else:
+                gold_answers = item["answer"]
+        elif isinstance(item['answer'], str):
+            gold_answers = [item["answer"]]
+        
+
         # 评估答案部分
         if predicted_answer is None:
             without_answer_ids.add(id)
             can_eval_joint = False
         else:
             # 计算答案指标并更新
-            em, prec, recall = update_answer(metrics, predicted_answer, item["answer"])
+            em, prec, recall = update_answer(metrics, predicted_answer, gold_answers)
 
         # 评估支持事实部分
-        if len(predicted_facts) == 0 or id not in dataset:
+        if len(predicted_facts) == 0:
             without_facts_ids.add(id)
             can_eval_joint = False
         else:
-            gold_supporting_facts = dataset[id].get("sfs", [])
+            gold_supporting_facts = item.get('sfs', [])
             # 计算支持事实指标并更新
             sp_em, sp_prec, sp_recall = update_sp(metrics, predicted_facts, gold_supporting_facts)
 
@@ -171,11 +180,11 @@ def eval(path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluation Script")
-    parser.add_argument("path", default="/home/lyc/projects/CopyPasteLRM/results/hotpotqa/localhost:8124_v1-qwen2.5-3b-instruct-temp=0.7-topp=0.95-prompt=reasoning_with_copy-paste-maxsamples=None-1133230.json", type=str, help="Path to the prediction JSON file")
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(description="Evaluation Script")
+    # parser.add_argument("path", default="results/popqa/CopyPasteLRM-DeepSeek-R1-Distill-Qwen-7B-temp=0.7-topp=0.95-prompt=reasoning-maxsamples=1000-1765113802.json", required=False)
+    # args = parser.parse_args()
 
-    eval(args.path)
+    eval('results/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen3-8B/copypaste/prompt_reasoning-1765135284.json')
 
 
 if __name__ == "__main__":

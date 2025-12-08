@@ -19,7 +19,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from eval.utils import extract_answer_and_facts
+from copypastelrm.metrics.utils import extract_answer_and_facts
 
 
 def load_all_done_results(results_dir: str = "results") -> List[Dict[str, Any]]:
