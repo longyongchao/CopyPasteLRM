@@ -1,6 +1,8 @@
 from typing import Dict, Any
 from string import Template
 
+from copypastelrm.datasets import load, AvailebleDatasets
+
 
 TEMPLATE = {
     # 适用于推理模型的CoT
@@ -45,14 +47,14 @@ def create_prompt(question: str, context: str, prompt_type: str) -> str:
 
 def main():
     # 示例用法
-    question = "Which historical decade saw the launch of the Apollo 11 mission?"
-    context = (
-        "The Apollo 11 mission was the spaceflight that landed the first two humans on the Moon. "
-        "The launch took place in 1969. The 1960s were a decade marked by significant political "
-        "and social change globally, including the US space race."
-    )
-    prompt_type = "direct"
+    dataset_loader = load(AvailebleDatasets.TWOWIKI)
+    sample = dataset_loader.get_sample()
+
+    question = sample['query']
+    context = sample['context']
+    prompt_type = 'reasoning_with_copypaste'
     prompt = create_prompt(question, context, prompt_type)
+
     print(prompt)
 
 if __name__ == "__main__":

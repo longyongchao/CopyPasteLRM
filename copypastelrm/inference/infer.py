@@ -25,24 +25,35 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, Tuple
+import random
 
 from openai import OpenAI
 from tqdm import tqdm
 
-# 添加项目根目录到 Python 路径
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+from copypastelrm.inference.prompt import create_prompt
+from copypastelrm.datasets.HotpotQA import HotpotQA
+from copypastelrm.datasets.PubMedQA import PubMedQA
+from copypastelrm.datasets.MultiRC import MultiRC
+from copypastelrm.datasets.MuSiQue import MuSiQue
+from copypastelrm.datasets.TwoWikiMultiHopQA import TwoWikiMultihopQA
+from copypastelrm.datasets.PopQA import PopQA
+from copypastelrm.datasets.FaithEval import FaithEval
+from copypastelrm.datasets.Qasper import Qasper
+from copypastelrm.datasets.CopyPaste import CopyPaste
 
-from inference.prompt import create_prompt
-from load_datasets.faitheval import load_faitheval
-from load_datasets.hotpotqa import load_hotpotqa
-from load_datasets.musique import load_musique
-from load_datasets.pubmedqa import load_pubmedqa
-from utils.git import get_git_commit_id
+
+from copypastelrm.utils.git import get_git_commit_id
 
 
-def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4096, temperature: float = 0.7, top_p=0.95) -> str:
+def call_model(
+    client: OpenAI,
+    model_name: str,
+    prompt: str,
+    max_tokens: int = 4096,
+    temperature: float = 0.7,
+    top_p=0.95,
+    enable_thinking: bool = False,
+) -> str:
     """
     调用模型进行推理
 
@@ -63,7 +74,7 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4
             temperature=temperature,
             top_p=top_p,
             extra_body={
-                "chat_template_kwargs": {"enable_thinking": False},
+                "chat_template_kwargs": {"enable_thinking": enable_thinking},
             },
         )
         return response.choices[0].message.content.strip()
@@ -72,7 +83,15 @@ def call_model(client: OpenAI, model_name: str, prompt: str, max_tokens: int = 4
         return ""
 
 
-def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: str, prompt_type: str, temperature: float, top_p: float) -> Tuple[str, str]:
+def process_single_sample(
+    sample: Dict[str, Any],
+    client: OpenAI,
+    model_name: str,
+    prompt_type: str,
+    temperature: float,
+    top_p: float,
+    enable_thinking: bool = False,
+) -> Tuple[str, str]:
     """
     处理单个样本的推理任务
 
@@ -91,7 +110,14 @@ def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: st
         prompt = create_prompt(sample["query"], sample["context"], prompt_type)
 
         # 调用模型
-        predict = call_model(client, model_name, prompt, temperature=temperature, top_p=top_p)
+        predict = call_model(
+            client,
+            model_name,
+            prompt,
+            temperature=temperature,
+            top_p=top_p,
+            enable_thinking=enable_thinking,
+        )
 
         if not predict:
             return sample_id, None
@@ -103,7 +129,9 @@ def process_single_sample(sample: Dict[str, Any], client: OpenAI, model_name: st
         return sample_id, e
 
 
-def save_intermediate_results(results: Dict[str, Any], output_file: str, processed_count: int, total_count: int):
+def save_intermediate_results(
+    results: Dict[str, Any], output_file: str, processed_count: int, total_count: int
+):
     """
     保存中间结果
 
@@ -132,6 +160,7 @@ def run_inference(
     api_key: str = "sk-wingchiu",
     temperature: float = 0.7,
     top_p: float = 0.95,
+    enable_thinking: bool = False,
 ):
     """
     运行完整的推理流程（多线程版本）
@@ -148,19 +177,30 @@ def run_inference(
 
     # 加载数据集
     if dataset_name == "hotpotqa":
-        dataset = load_hotpotqa()
-    elif dataset_name == "faitheval":
-        dataset = load_faitheval()
+        dataset_loader = HotpotQA(max_samples=max_samples)
+    elif dataset_name == "multirc":
+        dataset_loader = MultiRC(max_samples=max_samples)
     elif dataset_name == "pubmedqa":
-        dataset = load_pubmedqa()
+        dataset_loader = PubMedQA(max_samples=max_samples)
     elif dataset_name == "musique":
-        dataset = load_musique()
+        dataset_loader = MuSiQue(max_samples=max_samples)
+    elif dataset_name == "2wikimultihopqa":
+        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples)
+    elif dataset_name == "popqa":
+        dataset_loader = PopQA(max_samples=max_samples)
+    elif dataset_name == "faitheval":
+        dataset_loader = FaithEval(max_samples=max_samples)
+    elif dataset_name == "qasper":
+        dataset_loader = Qasper(max_samples=max_samples)
+    elif dataset_name == "copypaste":
+        dataset_loader = CopyPaste(max_samples=max_samples)
     else:
         raise ValueError(f"不支持的数据集: {dataset_name}")
 
-    if max_samples:
-        dataset = dataset[:max_samples]
-        print(f"限制处理样本数量为: {max_samples}")
+    dataset_dict = dataset_loader.dataset
+    dataset = []
+    for id, sample in dataset_dict.items():
+        dataset.append(sample)
 
     print(f"使用 {num_threads} 个线程进行并行推理")
 
@@ -188,12 +228,26 @@ def run_inference(
 
             # 每间隔指定数量样本保存一次中间结果
             if processed_count % save_interval == 0 or processed_count == len(dataset):
-                save_intermediate_results(results, output_file, processed_count, len(dataset))
+                save_intermediate_results(
+                    results, output_file, processed_count, len(dataset)
+                )
 
     # 使用线程池进行并行处理
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         # 提交所有任务
-        future_to_sample = {executor.submit(process_single_sample, sample, client, model_name, prompt_type, temperature, top_p): sample for sample in dataset}
+        future_to_sample = {
+            executor.submit(
+                process_single_sample,
+                sample,
+                client,
+                model_name,
+                prompt_type,
+                temperature,
+                top_p,
+                enable_thinking,
+            ): sample
+            for sample in dataset
+        }
 
         # 使用 tqdm 显示进度条
         with tqdm(total=len(dataset), desc="推理进度", unit="样本") as pbar:
@@ -243,7 +297,9 @@ def run_inference(
     # 保存最终结果
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump({"info": experiment_info, "data": results}, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {"info": experiment_info, "data": results}, f, ensure_ascii=False, indent=2
+        )
 
     print(f"推理完成，结果已保存到: {output_file}")
     print(f"总共处理了 {len(results)} 个样本")
@@ -252,29 +308,83 @@ def run_inference(
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="HotpotQA 推理脚本（多线程版本）")
-    parser.add_argument("--server-url", type=str, default="http://localhost:8124/v1", help="vLLM 服务地址，例如: https://api.siliconflow.cn/v1")
+    parser.add_argument(
+        "--server-url",
+        type=str,
+        default="http://localhost:8124/v1",
+        help="vLLM 服务地址，例如: https://api.siliconflow.cn/v1",
+    )
     parser.add_argument(
         "--model-name",
         type=str,
         required=True,
         help="模型名称",
     )
-    parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数，用于测试")
-    parser.add_argument("--num-threads", type=int, default=32, help="并行推理的线程数量，默认为 4")
-    parser.add_argument("--prompt-type", type=str, default="direct", choices=["direct", "reasoning", "reasoning_with_copypaste"], help="提示模板选择")
-    parser.add_argument("--dataset", type=str, default="hotpotqa", choices=["hotpotqa", "faitheval", "pubmedqa", "musique"], help="数据集名称，当前仅支持 hotpotqa")
-    parser.add_argument("--api-key", type=str, default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh", help="API Key，用于访问 第三方 服务")
+    parser.add_argument(
+        "--max-samples", type=int, default=None, help="最大处理样本数，用于测试"
+    )
+    parser.add_argument(
+        "--num-threads", type=int, default=4, help="并行推理的线程数量，默认为 4"
+    )
+    parser.add_argument(
+        "--prompt-type",
+        type=str,
+        default="direct",
+        choices=["direct", "reasoning", "reasoning_with_copypaste"],
+        help="提示模板选择",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="hotpotqa",
+        choices=[
+            "hotpotqa",
+            "multirc",
+            "pubmedqa",
+            "musique",
+            "2wikimultihopqa",
+            "popqa",
+            "faitheval",
+            "qasper",
+            "copypaste",
+        ],
+        help="数据集名称，当前仅支持 hotpotqa",
+    )
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh",
+        help="API Key，用于访问 第三方 服务",
+    )
     parser.add_argument("--temperature", type=float, default=0.7, help="模型生成温度")
     parser.add_argument("--top-p", type=float, default=0.95, help="模型生成 top-p 采样")
+    parser.add_argument("--seed", type=int, default=42, help="模型生成 top-p 采样")
+    parser.add_argument(
+        "--enable-thinking", type=bool, default=False, help="是否启用思考过程"
+    )
 
     args = parser.parse_args()
 
+    random.seed(args.seed)
+
     timestamp = int(time.time())
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    output_file = f"results/{args.dataset}/CopyPasteLRM-{model_name_clean}-temp={args.temperature}-topp={args.top_p}-prompt={args.prompt_type.replace(' ', '_')}-maxsamples={args.max_samples}-{timestamp}.json"
+    output_file = f"results/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}-tpp_{args.top_p}/{model_name_clean}/{args.dataset}/enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
-    run_inference(server_url=args.server_url, model_name=args.model_name, output_file=output_file, max_samples=args.max_samples, num_threads=args.num_threads, prompt_type=args.prompt_type, dataset_name=args.dataset, api_key=args.api_key, temperature=args.temperature, top_p=args.top_p)
+    run_inference(
+        server_url=args.server_url,
+        model_name=args.model_name,
+        output_file=output_file,
+        max_samples=args.max_samples,
+        num_threads=args.num_threads,
+        prompt_type=args.prompt_type,
+        dataset_name=args.dataset,
+        api_key=args.api_key,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        enable_thinking=args.enable_thinking,
+    )
 
 
 if __name__ == "__main__":
