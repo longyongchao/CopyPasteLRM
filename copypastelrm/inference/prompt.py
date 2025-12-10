@@ -1,10 +1,33 @@
-from typing import Dict, Any
+from typing import Dict, Any, Literal
 from string import Template
 
 from copypastelrm.datasets import load, AvailebleDatasets
 
 
 TEMPLATE = {
+    "pass@K": """User provides the following CONTEXT:
+
+$context
+
+QUESTION: $question
+
+You can consider below supporting facts from the context as evidence for your answer:
+$evidence
+
+Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
+    "pass@K_with_wrong_tips": """User provides the following CONTEXT:
+
+$context
+
+QUESTION: $question
+
+You can consider below supporting facts from the context as evidence for your answer:
+$evidence
+
+
+Note that these answers is incorrect: $prior_answer
+
+Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
     # 适用于推理模型的CoT
     "direct": """User provides the following CONTEXT:
 
@@ -51,16 +74,48 @@ i.e., <think> reasoning process (must include <copy>evidence from Context</copy>
 """.strip(),
 }
 
-def create_prompt(question: str, context: str, prompt_type: str) -> str:
 
-    template = TEMPLATE[prompt_type]
-    template = Template(template)
+def create_prompt(
+    question: str,
+    context: str,
+    prompt_type: Literal[
+        "pass@K", # 用于筛选模型无法回答的samples
+        "direct",
+        "reasoning",
+        "reasoning_with_copypaste",
+        "reasoning_with_copypaste_old",
+    ],
+    evidence: str = "",
+    prior_answer: str = "",
+) -> str:
 
-    # 使用 substitute 替换模板中的占位符
-    full_prompt = template.substitute(
-        context=context,
-        question=question,
-    )
+
+    if "pass@K" in prompt_type:
+        if prior_answer:
+            template = TEMPLATE['pass@K_with_wrong_tips']
+            template = Template(template)
+            full_prompt = template.substitute(
+                context=context,
+                question=question,
+                evidence=evidence,
+                prior_answer=prior_answer,
+            )
+        else:
+            template = TEMPLATE['pass@K']
+            template = Template(template)
+            full_prompt = template.substitute(
+                context=context,
+                question=question,
+                evidence=evidence,
+            )
+    else: 
+        # 使用 substitute 替换模板中的占位符
+        template = TEMPLATE[prompt_type]
+        template = Template(template)
+        full_prompt = template.substitute(
+            context=context,
+            question=question,
+        )
 
     return full_prompt.strip()
 
