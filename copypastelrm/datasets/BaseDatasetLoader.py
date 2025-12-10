@@ -16,8 +16,6 @@ class BaseDatasetLoader(ABC):
         self, 
         dataset_path: str, 
         split: str, 
-        name: str,
-        rename: bool = True,
         cache_dir: str = "data/cache/",  # 缓存路径
         dataset_name: Optional[str] = None, 
         offline: bool = True,
@@ -39,10 +37,12 @@ class BaseDatasetLoader(ABC):
         self.split = split
         self.offline = offline
         self.reload = reload
-        self.name = name
         self.format = format # 是否格式化数据集
-        self.cache_path = cache_dir + f"{self.name}.jsonl"
-        self.rename = rename
+        if self.dataset_name:
+            file_name = f"{self.dataset_path.split('/')[-1]}-{self.dataset_name}-{self.split}"
+        else:
+            file_name = f"{self.dataset_path.split('/')[-1]}-{self.split}"
+        self.cache_path = cache_dir + f"{file_name}.jsonl"
 
         # 检查cache_path是否以.jsonl结尾
         if self.cache_path:
@@ -144,8 +144,6 @@ class BaseDatasetLoader(ABC):
             "sfs": self.format_supporting_facts(sample),
         }
 
-        if self.rename:
-            formatted_sample['dataset'] = self.name
 
         return formatted_sample
 
@@ -278,9 +276,3 @@ class BaseDatasetLoader(ABC):
         print('-'* 20)
         if 'sfs' in sample:
             print(f"Supporting Facts: {sample['sfs']}")
-
-
-
-
-
-

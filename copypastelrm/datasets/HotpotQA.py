@@ -1,19 +1,18 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 
 
 class HotpotQA(BaseDatasetLoader):
     """https://huggingface.co/datasets/hotpotqa/hotpot_qa"""
 
-    def __init__(self, reload: str = False, max_samples: int = -1):
+    def __init__(self, dataset_path="hotpotqa/hotpot_qa", dataset_name="distractor", split: Literal["train", "validation"] = "validation", reload: str = False, max_samples: int = -1):
         super().__init__(
-            dataset_path="hotpotqa/hotpot_qa",
-            dataset_name="distractor",
-            split="validation",
-            name="hotpotqa_distractor_validation",
+            dataset_path=dataset_path,
+            dataset_name=dataset_name,
+            split=split,
             offline=True,
             reload=reload,
-            max_samples=max_samples
+            max_samples=max_samples,
         )
 
     def format_context(self, sample: Dict[str, Any]) -> str:
@@ -54,5 +53,5 @@ class HotpotQA(BaseDatasetLoader):
 if __name__ == "__main__":
     loader = HotpotQA(reload=True)
     dataset = loader.dataset
-    print(f"数据集样本数: {len(loader.dataset)}")
-    loader.random_sample()
+    dataset_list = loader.dataset_list
+    print(dataset_list[:5])

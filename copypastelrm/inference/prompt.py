@@ -1,10 +1,26 @@
-from typing import Dict, Any
+from typing import Dict, Any, Literal
 from string import Template
 
 from copypastelrm.datasets import load, AvailebleDatasets
 
 
 TEMPLATE = {
+    "attributed": """User provides the following CONTEXT:
+
+$context
+
+QUESTION: $question
+
+Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
+    "attributed_prior": """User provides the following CONTEXT:
+
+$context
+
+QUESTION: $question
+
+Note that these answers is incorrect: $prior_answer
+
+Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
     # 适用于推理模型的CoT
     "direct": """User provides the following CONTEXT:
 
@@ -51,16 +67,36 @@ i.e., <think> reasoning process (must include <copy>evidence from Context</copy>
 """.strip(),
 }
 
-def create_prompt(question: str, context: str, prompt_type: str) -> str:
+
+def create_prompt(
+    question: str,
+    context: str,
+    prompt_type: Literal[
+        "attributed",
+        "attributed_prior",
+        "direct",
+        "reasoning",
+        "reasoning_with_copypaste",
+        "reasoning_with_copypaste_old",
+    ],
+    prior_answer: str = "",
+) -> str:
 
     template = TEMPLATE[prompt_type]
     template = Template(template)
 
-    # 使用 substitute 替换模板中的占位符
-    full_prompt = template.substitute(
-        context=context,
-        question=question,
-    )
+    if prompt_type == "attributed_prior":
+        full_prompt = template.substitute(
+            context=context,
+            question=question,
+            prior_answer=prior_answer,
+        )
+    else: 
+        # 使用 substitute 替换模板中的占位符
+        full_prompt = template.substitute(
+            context=context,
+            question=question,
+        )
 
     return full_prompt.strip()
 

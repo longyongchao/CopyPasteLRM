@@ -1,15 +1,15 @@
 from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
+from typing import Literal
 
 
 class MuSiQue(BaseDatasetLoader):
     """https://huggingface.co/datasets/dgslibisey/MuSiQue"""
         
-    def __init__(self, reload: bool = False, max_samples: int = -1):
+    def __init__(self, split: Literal["train", "validation"]="validation", reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="dgslibisey/MuSiQue",
-            split="validation",
-            name="musique_validation",
+            split=split,
             offline=True,
             reload=reload,
             max_samples=max_samples

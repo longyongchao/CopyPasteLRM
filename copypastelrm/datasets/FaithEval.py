@@ -7,7 +7,6 @@ class FaithEval(BaseDatasetLoader):
         super().__init__(
             dataset_path="Salesforce/FaithEval-counterfactual-v1.0",
             split="test",
-            name='faitheval_counterfactual_test',
             offline=True,
             reload=reload,
             max_samples=max_samples

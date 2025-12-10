@@ -1,14 +1,14 @@
 import json
 from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
+from typing import Literal
 
 
 class TwoWikiMultihopQA(BaseDatasetLoader):
-    def __init__(self, reload: str = False, max_samples: int = -1):
+    def __init__(self, split: Literal['dev', 'test'] = 'dev', reload: str = False, max_samples: int = -1):
         super().__init__(
-            dataset_path="data/2WikiMultihopQA/dev.json",
-            split="dev",
-            name="2WikiMultihopQA_dev",
+            dataset_path="data/2WikiMultihopQA" + '/' + split + '.json',
+            split=split,
             offline=True,
             reload=reload,
             max_samples=max_samples

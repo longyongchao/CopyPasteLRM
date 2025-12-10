@@ -1,16 +1,16 @@
 from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
+from typing import Literal
 
 
 class PubMedQA(BaseDatasetLoader):
     """https://huggingface.co/datasets/qiaojin/PubMedQA"""
         
-    def __init__(self, reload: bool = False, max_samples: int = -1):
+    def __init__(self, dataset_name: Literal["pqa_labeled", "pqa_unlabeled", "pqa_artificial"] = "pqa_labeled",  reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="qiaojin/PubMedQA",
             dataset_name="pqa_labeled",
             split="train",
-            name='pubmedqa_pqa_labeled_train',
             offline=True,
             reload=reload,
             max_samples=max_samples

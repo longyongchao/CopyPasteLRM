@@ -330,7 +330,7 @@ def main():
         "--prompt-type",
         type=str,
         default="direct",
-        choices=["direct", "reasoning", "reasoning_with_copypaste", "reasoning_with_copypaste_old"],
+        choices=["attributed", "direct", "reasoning", "reasoning_with_copypaste", "reasoning_with_copypaste_old"],
         help="提示模板选择",
     )
     parser.add_argument(
