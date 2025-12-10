@@ -5,18 +5,25 @@ from copypastelrm.datasets import load, AvailebleDatasets
 
 
 TEMPLATE = {
-    "attributed": """User provides the following CONTEXT:
+    "pass@K": """User provides the following CONTEXT:
 
 $context
 
 QUESTION: $question
+
+You can consider below supporting facts from the context as evidence for your answer:
+$evidence
 
 Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
-    "attributed_prior": """User provides the following CONTEXT:
+    "pass@K_with_wrong_tips": """User provides the following CONTEXT:
 
 $context
 
 QUESTION: $question
+
+You can consider below supporting facts from the context as evidence for your answer:
+$evidence
+
 
 Note that these answers is incorrect: $prior_answer
 
@@ -72,27 +79,39 @@ def create_prompt(
     question: str,
     context: str,
     prompt_type: Literal[
-        "attributed",
-        "attributed_prior",
+        "pass@K", # 用于筛选模型无法回答的samples
         "direct",
         "reasoning",
         "reasoning_with_copypaste",
         "reasoning_with_copypaste_old",
     ],
+    evidence: str = "",
     prior_answer: str = "",
 ) -> str:
 
-    template = TEMPLATE[prompt_type]
-    template = Template(template)
 
-    if prompt_type == "attributed_prior":
-        full_prompt = template.substitute(
-            context=context,
-            question=question,
-            prior_answer=prior_answer,
-        )
+    if "pass@K" in prompt_type:
+        if prior_answer:
+            template = TEMPLATE['pass@K_with_wrong_tips']
+            template = Template(template)
+            full_prompt = template.substitute(
+                context=context,
+                question=question,
+                evidence=evidence,
+                prior_answer=prior_answer,
+            )
+        else:
+            template = TEMPLATE['pass@K']
+            template = Template(template)
+            full_prompt = template.substitute(
+                context=context,
+                question=question,
+                evidence=evidence,
+            )
     else: 
         # 使用 substitute 替换模板中的占位符
+        template = TEMPLATE[prompt_type]
+        template = Template(template)
         full_prompt = template.substitute(
             context=context,
             question=question,

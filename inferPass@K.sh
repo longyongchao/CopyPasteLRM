@@ -22,13 +22,12 @@ SERVER_URL="http://localhost:8124/v1"
 API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # 实验参数
-PROMPT_TYPE="attributed"           # 提示模板类型 (例如: direct, reasoning)
-K_VALUE=64                        # Pass@K 的 K 值，即最大采样次数
-PRIOR_THRESHOLD=32
+K_VALUE=42                        # Pass@K 的 K 值，即最大采样次数
+PRIOR_THRESHOLD=21
 TEMPERATURE=0.6                   # 模型生成温度
 TOP_P=0.95                        # 模型生成 top-p
 NUM_THREADS=15                     # 并行推理的线程数量
-MAX_SAMPLES=50000                 # 最大处理样本数 (设置为 None 则处理全部)
+MAX_SAMPLES=2000                 # 最大处理样本数 (设置为 None 则处理全部)
 
 # 检查 Python 文件是否存在
 if [ ! -f "copypastelrm/inference/inferPass@K.py" ]; then
@@ -53,7 +52,6 @@ for DATASET_NAME in "${DATASETS[@]}"; do
         --server-url "${SERVER_URL}" \
         --model-name "${MODEL_NAME}" \
         --dataset "${DATASET_NAME}" \
-        --prompt-type "${PROMPT_TYPE}" \
         --api-key "${API_KEY}" \
         --num-threads "${NUM_THREADS}" \
         --max-samples "${MAX_SAMPLES}" \

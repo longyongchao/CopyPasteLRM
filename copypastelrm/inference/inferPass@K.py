@@ -72,7 +72,6 @@ def process_single_sample_pass_at_k(
     sample: Dict[str, Any],
     client: OpenAI,
     model_name: str,
-    prompt_type: str,
     temperature: float,
     top_p: float,
     k: int,
@@ -92,9 +91,20 @@ def process_single_sample_pass_at_k(
         # Pass@K 循环
         for attempt_idx in range(1, k + 1):
             if attempt_idx < prior_threshold:
-                prompt = create_prompt(sample["query"], sample["context"], 'attributed')
+                prompt = create_prompt(
+                    sample["query"],
+                    sample["context"],
+                    "pass@K",
+                    "\n".join(sample["sfs"]),
+                )
             else:
-                prompt = create_prompt(sample["query"], sample["context"], 'attributed_prior', "; ".join(tips_wrong_answer))
+                prompt = create_prompt(
+                    sample["query"],
+                    sample["context"],
+                    "pass@K",
+                    "\n".join(sample["sfs"]),
+                    "; ".join(tips_wrong_answer),
+                )
 
             # 调用模型
             predict = call_model(
@@ -115,10 +125,10 @@ def process_single_sample_pass_at_k(
 
                 if not is_correct:
                     tips_wrong_answer.add(predict_answer)
-                
-                if attempt_idx in [8, 16, 32, 64, 128, 256, 512, 1024]:
+
+                if attempt_idx in [4, 8, 16, 32, 64, 128, 256, 512, 1024]:
                     print("❌", sample_id, attempt_idx, is_correct)
-                if attempt_idx > 4 and is_correct:
+                if attempt_idx >= 4 and is_correct:
                     print("✅", sample_id, attempt_idx, is_correct)
 
             # 记录当前采样结果
@@ -151,7 +161,6 @@ def run_inference(
     max_samples: int = None,
     prior_threshold: int = 64,
     num_threads: int = 16,
-    prompt_type: str = "reasoning with copy-paste",
     dataset_name: str = "hotpotqa",
     api_key: str = "sk-wingchiu",
     temperature: float = 0.6,
@@ -178,9 +187,9 @@ def run_inference(
     elif dataset_name == "popqa":
         dataset_loader = PopQA(max_samples=max_samples, split="train")
     elif dataset_name == "qasper":
-        dataset_loader = Qasper(max_samples=max_samples, split='train')
+        dataset_loader = Qasper(max_samples=max_samples, split="train")
     elif dataset_name == "2wikimultihopqa":
-        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split='dev')
+        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split="dev")
 
     elif dataset_name == "pubmedqa":
         dataset_loader = PubMedQA(max_samples=max_samples)
@@ -209,7 +218,6 @@ def run_inference(
                 sample,
                 client,
                 model_name,
-                prompt_type,
                 temperature,
                 top_p,
                 k,
@@ -270,16 +278,15 @@ def main():
         help="模型名称",
     )
     parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数")
-    parser.add_argument("--prior-threshold", type=int, default=None, help="尝试多少次之后提供错误答案提示")
+    parser.add_argument(
+        "--prior-threshold",
+        type=int,
+        default=None,
+        help="尝试多少次之后提供错误答案提示",
+    )
     parser.add_argument("--num-threads", type=int, default=4, help="线程数量")
     parser.add_argument(
         "--k", type=int, default=1, help="Pass@K 的 K 值，即最大采样次数"
-    )
-    parser.add_argument(
-        "--prompt-type",
-        type=str,
-        default="direct",
-        help="提示模板选择",
     )
     parser.add_argument(
         "--dataset",
@@ -303,7 +310,7 @@ def main():
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
 
     # 修改输出文件名，增加 k 值标识，后缀改为 .jsonl
-    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{args.dataset}-resamples_{args.max_samples}-tpr_{args.temperature}-tpp_{args.top_p}-{model_name_clean}-enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
+    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{args.dataset}-resamples_{args.max_samples}-tpr_{args.temperature}-tpp_{args.top_p}-{model_name_clean}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
 
     assert args.prior_threshold < args.k, "错误提示阈值不能大于最大采样次数"
 
@@ -318,7 +325,6 @@ def main():
         max_samples=args.max_samples,
         prior_threshold=args.prior_threshold,
         num_threads=args.num_threads,
-        prompt_type=args.prompt_type,
         dataset_name=args.dataset,
         api_key=args.api_key,
         temperature=args.temperature,
