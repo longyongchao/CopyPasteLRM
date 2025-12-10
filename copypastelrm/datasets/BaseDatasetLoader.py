@@ -11,13 +11,13 @@ class BaseDatasetLoader(ABC):
     """
     数据集加载器的基类，提供统一的数据集加载和预处理接口
     """
-    
+
     def __init__(
-        self, 
-        dataset_path: str, 
-        split: str, 
+        self,
+        dataset_path: str,
+        split: str,
         cache_dir: str = "data/cache/",  # 缓存路径
-        dataset_name: Optional[str] = None, 
+        dataset_name: Optional[str] = None,
         offline: bool = True,
         reload: bool = False,
         format: bool = True,
@@ -25,7 +25,7 @@ class BaseDatasetLoader(ABC):
     ):
         """
         初始化数据集加载器
-        
+
         Args:
             dataset_path: HuggingFace 数据集路径
             dataset_name: 数据集子集名称（可选）
@@ -37,18 +37,18 @@ class BaseDatasetLoader(ABC):
         self.split = split
         self.offline = offline
         self.reload = reload
-        self.format = format # 是否格式化数据集
+        self.format = format  # 是否格式化数据集
         if self.dataset_name:
-            file_name = f"{self.dataset_path.split('/')[-1]}-{self.dataset_name}-{self.split}"
+            file_name = f"{self.dataset_path.replace('.json', '').replace('/', '-')}-{self.dataset_name}-{self.split}"
         else:
-            file_name = f"{self.dataset_path.split('/')[-1]}-{self.split}"
+            file_name = f"{self.dataset_path.replace('.json', '').replace('/', '-')}-{self.split}"
         self.cache_path = cache_dir + f"{file_name}.jsonl"
 
         # 检查cache_path是否以.jsonl结尾
         if self.cache_path:
-            if not self.cache_path.endswith('.jsonl'):
+            if not self.cache_path.endswith(".jsonl"):
                 raise ValueError("cache_path must end with .jsonl")
-        
+
         self.dataset_list = None
 
         self.dataset = self.get_dataset()
@@ -59,7 +59,7 @@ class BaseDatasetLoader(ABC):
             for sample in self.dataset_list:
                 self.dataset_dict[sample["id"]] = sample
             self.dataset = self.dataset_dict
-    
+
         assert len(self.dataset_list) == len(self.dataset), "数据集列表和字典长度不一致"
 
     def download_dataset(self) -> List[Dict[str, Any]]:
@@ -68,30 +68,36 @@ class BaseDatasetLoader(ABC):
         if self.dataset_name:
             print(f"数据集子集: {self.dataset_name}")
         print(f"数据分割: {self.split}")
-        
+
         if self.dataset_name:
-            dataset = load_dataset(path=self.dataset_path, name=self.dataset_name, split=self.split)
+            dataset = load_dataset(
+                path=self.dataset_path, name=self.dataset_name, split=self.split
+            )
         else:
             dataset = load_dataset(path=self.dataset_path, split=self.split)
 
         dataset = list(dataset)
-        
+
         return dataset
-    
 
     def get_dataset(self):
         """
         加载数据集
-        
+
         Args:
             origin: 是否返回原始数据集（不进行格式化）
-            
+
         Returns:
             List[Dict]: 包含数据样本的列表
         """
 
-        if not self.reload and self.offline and self.cache_path and os.path.exists(self.cache_path):
-            with open(self.cache_path, 'r') as f:
+        if (
+            not self.reload
+            and self.offline
+            and self.cache_path
+            and os.path.exists(self.cache_path)
+        ):
+            with open(self.cache_path, "r") as f:
                 print(f"🎯Loading dataset from cache: {self.cache_path}")
                 formatted_dataset_list = json.load(f)
                 self.dataset_list = formatted_dataset_list
@@ -99,14 +105,14 @@ class BaseDatasetLoader(ABC):
                 for sample in formatted_dataset_list:
                     dataset_dict[sample["id"]] = sample
                 return dataset_dict
-        
+
         dataset = self.download_dataset()
 
         formatted_dataset_dict = {}
         formatted_dataset_list = []
-        
+
         iterator = tqdm(dataset, desc="Formatting dataset", unit="sample")
-        
+
         for sample in iterator:
             if self.format:
                 formatted_sample = self.format_sample(sample)
@@ -114,25 +120,30 @@ class BaseDatasetLoader(ABC):
                 formatted_sample = sample
             formatted_dataset_list.append(formatted_sample)
             formatted_dataset_dict[formatted_sample["id"]] = formatted_sample
-        
+
         # 如果开启离线模式并且指定了缓存路径，则将格式化后的数据集保存到缓存文件
         if self.offline and self.cache_path:
             os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
-            with open(self.cache_path, 'w') as f:
+            with open(self.cache_path, "w") as f:
                 print(f"Saving formatted dataset to cache: {self.cache_path}")
-                json.dump(list(formatted_dataset_dict.values()), f, ensure_ascii=False, indent=4)
+                json.dump(
+                    list(formatted_dataset_dict.values()),
+                    f,
+                    ensure_ascii=False,
+                    indent=4,
+                )
 
         self.dataset_list = formatted_dataset_list
 
         return formatted_dataset_dict
-    
+
     def format_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
         格式化单个数据样本
-        
+
         Args:
             sample: 原始数据样本
-            
+
         Returns:
             Dict[str, Any]: 格式化后的数据样本
         """
@@ -144,16 +155,15 @@ class BaseDatasetLoader(ABC):
             "sfs": self.format_supporting_facts(sample),
         }
 
-
         return formatted_sample
 
     def format_id(self, sample: Dict[str, Any]) -> str:
         """
         格式化样本 ID
-        
+
         Args:
             sample: 原始数据样本
-            
+
         Returns:
             str: 样本 ID
         """
@@ -165,89 +175,88 @@ class BaseDatasetLoader(ABC):
     def format_query(self, sample: Dict[str, Any]) -> str:
         """
         格式化查询字段
-        
+
         Args:
             sample: 原始数据样本
-            
+
         Returns:
             str: 查询文本
         """
-        if 'question' in sample:
+        if "question" in sample:
             return sample["question"]
         elif "query" in sample:
             return sample["query"]
         else:
             raise NotImplementedError("子类必须实现 format_query 方法")
-    
+
     def format_context(self, sample: Dict[str, Any]) -> str:
         """
         标准的上下文格式化方法（适用于包含 title 和 sentences 的上下文）
-        
+
         Args:
             context: 包含 title 和 sentences 的字典
-            
+
         Returns:
             str: 格式化后的上下文文本
         """
-        if 'context' in sample and isinstance(sample['context'], str):
-            return sample['context']
+        if "context" in sample and isinstance(sample["context"], str):
+            return sample["context"]
         else:
             raise NotImplementedError("子类必须实现 format_context 方法")
-    
+
     def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
         """
         段落式的上下文格式化方法（适用于包含段落列表的上下文）
-        
+
         Args:
             context: 包含段落的列表，每个段落包含 title 和 paragraph_text
-            
+
         Returns:
             str: 格式化后的上下文文本
         """
-        if 'supporting_facts' in sample:
-            sfs = sample['supporting_facts']
+        if "supporting_facts" in sample:
+            sfs = sample["supporting_facts"]
             if isinstance(sfs, list):
-                return sample['supporting_facts']
+                return sample["supporting_facts"]
         else:
             raise NotImplementedError("子类必须实现 format_supporting_facts 方法")
-    
 
     def format_answer(self, sample: Dict[str, Any]) -> List[str]:
         """
         格式化答案字段
-        
+
         Args:
             sample: 原始数据样本
-            
+
         Returns:
             str: 格式化后的答案文本
         """
-        if 'answer' in sample:
-            if isinstance(sample['answer'], str):
+        if "answer" in sample:
+            if isinstance(sample["answer"], str):
                 return [sample["answer"]]
-            elif isinstance(sample['answer'], list):
-                return sample['answer']
-        elif 'answers' in sample and isinstance(sample['answers'], list):
-            return sample['answers']
+            elif isinstance(sample["answer"], list):
+                return sample["answer"]
+        elif "answers" in sample and isinstance(sample["answers"], list):
+            return sample["answers"]
         else:
             raise NotImplementedError("子类必须实现 format_answer 方法")
-    
+
     def get_length(self) -> int:
         """
         获取数据集样本数量
-        
+
         Returns:
             int: 数据集样本数量
         """
         return len(self.dataset)
-    
-    def get_sample(self, sample_id = None) -> Dict[str, Any]:
+
+    def get_sample(self, sample_id=None) -> Dict[str, Any]:
         """
         根据样本 ID 获取样本
-        
+
         Args:
             sample_id: 样本 ID
-            
+
         Returns:
             Dict[str, Any]: 样本数据
         """
@@ -256,23 +265,23 @@ class BaseDatasetLoader(ABC):
         else:
             sample_id = random.choice(list(self.dataset.keys()))
         return self.dataset.get(sample_id, None)
-    
+
     def random_sample(self) -> Dict[str, Any]:
         """
         随机获取一个样本
-        
+
         Returns:
             Dict[str, Any]: 随机样本
         """
         sample_id = random.choice(list(self.dataset.keys()))
         sample = self.dataset[sample_id]
         print(f"ID: {sample_id}")
-        print('-'* 20)
+        print("-" * 20)
         print(f"Query: {sample['query']}")
-        print('-'* 20)
+        print("-" * 20)
         print(f"Context: {sample['context']}")
-        print('-'* 20)
+        print("-" * 20)
         print(f"Answer: {sample['answer']}")
-        print('-'* 20)
-        if 'sfs' in sample:
+        print("-" * 20)
+        if "sfs" in sample:
             print(f"Supporting Facts: {sample['sfs']}")
