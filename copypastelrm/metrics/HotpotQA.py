@@ -101,6 +101,8 @@ def exact_match_score(prediction, gold_answers):
     Returns:
         bool: 如果完全匹配返回 True，否则返回 False
     """
+    if not prediction:
+        return False
     for gold_answer in gold_answers:
         if normalize_answer(prediction) == normalize_answer(gold_answer):
             return True
