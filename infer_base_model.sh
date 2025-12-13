@@ -28,7 +28,7 @@ repeat_times=1
 server_url="http://localhost:8124/v1"
 # server_url="https://api.siliconflow.cn/v1"
 num_threads=9
-model_name="qwen3-235b-thinking "
+model_name="qwen3-235b-thinking"
 # model_name="Qwen3-8B"
 max_samples=-1
 
