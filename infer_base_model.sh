@@ -1,20 +1,34 @@
 #!/bin/bash
 
 # 定义要推理的数据集列表
-# datasets=("hotpotqa" "multirc" "pubmedqa" "musique" "2wikimultihopqa" "popqa" "faitheval" "qasper")
-datasets=("copypaste")
+datasets=(
+    "hotpotqa" 
+    "multirc" 
+    "musique" 
+    "2wikimultihopqa" 
+    "popqa" 
+    "qasper"
+    # "faitheval" 
+    # "pubmedqa" 
+)
+# datasets=("copypaste")
 
 # 定义要循环的 prompt_type 列表
 # prompt_types=("reasoning_with_copypaste")
-prompt_types=("direct" "reasoning" "reasoning_with_copypaste" "reasoning_with_copypaste_old")
+prompt_types=(
+    "direct" 
+    # "reasoning" 
+    # "reasoning_with_copypaste" 
+    # "reasoning_with_copypaste_old"
+)
 
 # 定义重复次数，默认为3次
 repeat_times=1
 
 server_url="http://localhost:8124/v1"
 # server_url="https://api.siliconflow.cn/v1"
-num_threads=128
-model_name="Qwen2.5-3B-Instruct"
+num_threads=9
+model_name="qwen3-235b-thinking "
 # model_name="Qwen3-8B"
 max_samples=-1
 
@@ -54,7 +68,7 @@ for ((i=1; i<=repeat_times; i++)); do
                 --prompt-type "$prompt_type" \
                 --dataset "$dataset" \
                 --max-samples $max_samples \
-                # --enable-trainset
+                --enable-trainset
                 # --enable-thinking
 
             echo "数据集 $dataset 推理完成 [$current_task/$total_tasks]"

@@ -35,7 +35,7 @@ $context
 
 QUESTION: $question
 
-Answer the above question in the exact format 'Answer: <answer>'.""".strip(),
+Answer the above question in the exact format 'Answer: <Your final answer>'.""".strip(),
     # 适用于通用模型
     "reasoning": """User provides the following CONTEXT:
 
