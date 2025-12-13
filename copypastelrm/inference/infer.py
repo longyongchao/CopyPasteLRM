@@ -161,6 +161,7 @@ def run_inference(
     temperature: float = 0.7,
     top_p: float = 0.95,
     enable_thinking: bool = False,
+    enable_trainset: bool = False,
 ):
     """
     运行完整的推理流程（多线程版本）
@@ -177,23 +178,23 @@ def run_inference(
 
     # 加载数据集
     if dataset_name == "hotpotqa":
-        dataset_loader = HotpotQA(max_samples=max_samples)
+        dataset_loader = HotpotQA(max_samples=max_samples, split='train' if enable_trainset else 'validation')
     elif dataset_name == "multirc":
-        dataset_loader = MultiRC(max_samples=max_samples)
-    elif dataset_name == "pubmedqa":
-        dataset_loader = PubMedQA(max_samples=max_samples)
+        dataset_loader = MultiRC(max_samples=max_samples, split='dev' if enable_trainset else 'train')
     elif dataset_name == "musique":
-        dataset_loader = MuSiQue(max_samples=max_samples)
+        dataset_loader = MuSiQue(max_samples=max_samples, split='train' if enable_trainset else 'validation') 
     elif dataset_name == "2wikimultihopqa":
-        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples)
+        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split='dev' if enable_trainset else 'test')
     elif dataset_name == "popqa":
-        dataset_loader = PopQA(max_samples=max_samples)
-    elif dataset_name == "faitheval":
-        dataset_loader = FaithEval(max_samples=max_samples)
+        dataset_loader = PopQA(max_samples=max_samples, split='train' if enable_trainset else 'test')
     elif dataset_name == "qasper":
-        dataset_loader = Qasper(max_samples=max_samples)
+        dataset_loader = Qasper(max_samples=max_samples, split='train' if enable_trainset else 'test')
     elif dataset_name == "copypaste":
         dataset_loader = CopyPaste(max_samples=max_samples)
+    elif dataset_name == "pubmedqa":
+        dataset_loader = PubMedQA(max_samples=max_samples, )
+    elif dataset_name == "faitheval":
+        dataset_loader = FaithEval(max_samples=max_samples)
     else:
         raise ValueError(f"不支持的数据集: {dataset_name}")
 
@@ -362,6 +363,9 @@ def main():
     parser.add_argument(
         "--enable-thinking", action="store_true", help="是否启用思考"
     )
+    parser.add_argument(
+        "--enable-trainset", action="store_true", help="是否推理训练集"
+    )
 
     args = parser.parse_args()
 
@@ -369,7 +373,7 @@ def main():
 
     timestamp = int(time.time())
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    output_file = f"results/infer/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}-tpp_{args.top_p}/{model_name_clean}/{args.dataset}/enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
+    output_file = f"results/infer/trainset_{args.enable_trainset}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}-tpp_{args.top_p}/{model_name_clean}/{args.dataset}/enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     run_inference(
@@ -384,6 +388,7 @@ def main():
         temperature=args.temperature,
         top_p=args.top_p,
         enable_thinking=args.enable_thinking,
+        enable_trainset=args.enable_trainset,
     )
 
 

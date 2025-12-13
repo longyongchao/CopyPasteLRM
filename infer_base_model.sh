@@ -54,7 +54,8 @@ for ((i=1; i<=repeat_times; i++)); do
                 --prompt-type "$prompt_type" \
                 --dataset "$dataset" \
                 --max-samples $max_samples \
-                # --enable-thinking $enable_thinking
+                # --enable-trainset
+                # --enable-thinking
 
             echo "数据集 $dataset 推理完成 [$current_task/$total_tasks]"
             echo "--------------------------------"

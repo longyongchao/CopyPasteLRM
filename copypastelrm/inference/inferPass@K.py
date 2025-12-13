@@ -179,7 +179,7 @@ def run_inference(
     if dataset_name == "hotpotqa":
         dataset_loader = HotpotQA(max_samples=max_samples, split="train")
     elif dataset_name == "multirc":
-        dataset_loader = MultiRC(max_samples=max_samples)
+        dataset_loader = MultiRC(max_samples=max_samples, split='train')
     elif dataset_name == "musique":
         dataset_loader = MuSiQue(max_samples=max_samples, split="train")
     elif dataset_name == "popqa":

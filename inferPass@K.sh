@@ -8,12 +8,12 @@
 # 定义需要遍历执行的数据集名称列表
 # 确保这些名称与 inferPass@K.py 中支持的 --dataset 参数值一致
 DATASETS=(
-    "hotpotqa"
-    "multirc"
-    "musique"
+    # "multirc"
     "popqa" 
     "qasper"
     "2wikimultihopqa"
+    "musique"
+    # "hotpotqa"
 )
 
 # 模型和服务器配置
