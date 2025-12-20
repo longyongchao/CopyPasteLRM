@@ -53,7 +53,7 @@ swift rlhf \
     --create_checkpoint_symlink true \
     --gradient_accumulation_steps 1 \
     --warmup_ratio 0.05 \
-    --dataloader_num_workers 4 \
+    --dataloader_num_workers 1 \
     --max_length 32768 \
     --max_completion_length 2048 \
     --external_plugins reward.py \

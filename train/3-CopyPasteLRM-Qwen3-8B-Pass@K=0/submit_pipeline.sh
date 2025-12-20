@@ -16,25 +16,31 @@
 set -e
 set -o pipefail
 
-# %Y%m%d%H%M%S 生成前14位
-timestamp=$(date +%Y%m%d%H%M%S)
 
 # export MODEL_NAME="Qwen/Qwen3-8B"
 export MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
+# export MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 
-# EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
-EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
-EXP_NAME=${MODEL_NAME}-passAtK_0-${timestamp}
+EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
+# EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
 
-export RLHF_CUDA_VISIBLE_DEVICES_LIST="0,1"
-export RLHF_NPROC_PER_NODE=2
+export RLHF_CUDA_VISIBLE_DEVICES_LIST="0,1,2,3"
+export RLHF_NPROC_PER_NODE=4
+
+export BATCH_SIZE=8
+export NUM_GENERATIONS=8
+
+###################################################################
+
+# %Y%m%d%H%M%S 生成前14位
+timestamp=$(date +%Y%m%d%H%M%S)
+
+EXP_NAME=${MODEL_NAME}-passAtK_0-wo_copying-${timestamp}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
 export SPLIT_DATASET_RATIO=0.03007 # 93/3093=0.0300678952，3000样本用于训练，93样本用于评估
 
-export BATCH_SIZE=4
-export NUM_GENERATIONS=8
 export SAVE_STEPS=200
 # export DATASET_SAMPLE=5
 export DATASET_SAMPLE=3093
@@ -50,8 +56,8 @@ echo "========== Stage 1 =========="
 # Stage1: Copy-dominant
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.6
-export REWARD_ANSWER=0.2
+export REWARD_COPY=0.0
+export REWARD_ANSWER=0.8
 
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
 
@@ -69,8 +75,8 @@ echo "========== Stage 2 =========="
 # Stage2: Answer-dominant
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.2
-export REWARD_ANSWER=0.6
+export REWARD_COPY=0.0
+export REWARD_ANSWER=0.8
 
 export SWANLAB_EXP_NAME="[stage2]${EXP_NAME}"
 
