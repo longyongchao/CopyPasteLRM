@@ -27,7 +27,7 @@ class CopyPasteQAPreprocessor(ResponsePreprocessor):
 
 register_dataset(
     DatasetMeta(
-        dataset_path="/home/lyc/projects/CopyPasteLRM/passAtK0_data.jsonl",
+        dataset_path="../../passAtK0_data.jsonl",
         dataset_name="copypaste_qa",
         preprocess_func=CopyPasteQAPreprocessor(
             columns={
