@@ -8,26 +8,27 @@
 # 定义需要遍历执行的数据集名称列表
 # 确保这些名称与 inferPass@K.py 中支持的 --dataset 参数值一致
 DATASETS=(
-    # "multirc"
+    "multirc"
     "popqa" 
     "qasper"
     "2wikimultihopqa"
     "musique"
-    # "hotpotqa"
+    "hotpotqa"
 )
 
 # 模型和服务器配置
-MODEL_NAME="Qwen3-8B"
+# MODEL_NAME="Qwen3-8B"
+MODEL_NAME="Qwen2.5-3B-Instruct"
 SERVER_URL="http://localhost:8124/v1"
 API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # 实验参数
-K_VALUE=42                        # Pass@K 的 K 值，即最大采样次数
-PRIOR_THRESHOLD=21
-TEMPERATURE=0.6                   # 模型生成温度
+K_VALUE=1024                       # Pass@K 的 K 值，即最大采样次数
+PRIOR_THRESHOLD=1000
+TEMPERATURE=1.0                   # 模型生成温度
 TOP_P=0.95                        # 模型生成 top-p
-NUM_THREADS=15                     # 并行推理的线程数量
-MAX_SAMPLES=2000                 # 最大处理样本数 (设置为 None 则处理全部)
+NUM_THREADS=128                   # 并行推理的线程数量
+MAX_SAMPLES=3000                  # 最大处理样本数 (设置为 None 则处理全部)
 
 # 检查 Python 文件是否存在
 if [ ! -f "copypastelrm/inference/inferPass@K.py" ]; then
@@ -59,7 +60,7 @@ for DATASET_NAME in "${DATASETS[@]}"; do
         --temperature "${TEMPERATURE}" \
         --prior-threshold "${PRIOR_THRESHOLD}" \
         --top-p "${TOP_P}" \
-        --enable-thinking
+        # --enable-thinking
         
     # 检查上一个命令的退出状态
     if [ $? -eq 0 ]; then

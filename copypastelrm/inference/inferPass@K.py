@@ -126,9 +126,7 @@ def process_single_sample_pass_at_k(
                 if not is_correct:
                     tips_wrong_answer.add(predict_answer)
 
-                if attempt_idx in [4, 8, 16, 32, 64, 128, 256, 512, 1024]:
-                    print("❌", sample_id, attempt_idx, is_correct)
-                if attempt_idx >= 4 and is_correct:
+                if attempt_idx > 512 and is_correct:
                     print("✅", sample_id, attempt_idx, is_correct)
 
             # 记录当前采样结果
