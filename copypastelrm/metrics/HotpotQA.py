@@ -41,7 +41,7 @@ def normalize_answer(s):
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
 
-def f1_score(prediction, gold_answers):
+def f1_score(prediction, gold_answer):
     """
     计算预测答案与标准答案之间的 F1 分数
 
@@ -56,14 +56,14 @@ def f1_score(prediction, gold_answers):
     """
     # 标准化预测答案和标准答案
     normalized_prediction = normalize_answer(prediction)
-    normalized_ground_truth = normalize_answer(gold_answers)
+    normalized_ground_truth = normalize_answer(gold_answer)
 
     ZERO_METRIC = (0, 0, 0)  # 零分指标常量
 
     # 特殊处理：对于 yes/no/noanswer 类型的答案，必须完全匹配
-    if normalized_prediction in ["yes", "no", "noanswer"] and normalized_prediction != normalized_ground_truth:
+    if normalized_prediction in ["yes", "no", "noanswer", "maybe"] and normalized_prediction != normalized_ground_truth:
         return ZERO_METRIC
-    if normalized_ground_truth in ["yes", "no", "noanswer"] and normalized_prediction != normalized_ground_truth:
+    if normalized_ground_truth in ["yes", "no", "noanswer", "maybe"] and normalized_prediction != normalized_ground_truth:
         return ZERO_METRIC
 
     # 分词处理
