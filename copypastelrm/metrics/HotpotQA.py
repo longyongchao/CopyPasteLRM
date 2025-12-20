@@ -227,4 +227,4 @@ def update_sp(metrics, predict_sfs, gold_sfs):
     metrics["sp_prec"] += prec
     metrics["sp_recall"] += recall
 
-    return em, prec, recall
+    return em, prec, recall, f1

@@ -140,7 +140,7 @@ def eval(path: str):
         else:
             gold_supporting_facts = item["sfs"]
             # 计算支持事实指标并更新
-            sp_em, sp_prec, sp_recall = update_sp(
+            sp_em, sp_prec, sp_recall, _ = update_sp(
                 metrics_by_subset[subset], predicted_facts, gold_supporting_facts
             )
 
