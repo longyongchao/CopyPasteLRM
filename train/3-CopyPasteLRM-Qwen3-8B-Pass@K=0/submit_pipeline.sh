@@ -35,9 +35,9 @@ export SPLIT_DATASET_RATIO=0.03007 # 93/3093=0.0300678952，3000样本用于训�
 
 export BATCH_SIZE=4
 export NUM_GENERATIONS=8
-export SAVE_STEPS=5
-export DATASET_SAMPLE=5
-# export DATASET_SAMPLE=3093
+export SAVE_STEPS=200
+# export DATASET_SAMPLE=5
+export DATASET_SAMPLE=3093
 
 export SWANLAB_PROJECT="CopyPasteLRM"
 export SWANLAB_TOKEN="eD9F8nh3oF5zAeyopbN8f"
@@ -53,7 +53,7 @@ export REWARD_LENGTH=0.1
 export REWARD_COPY=0.6
 export REWARD_ANSWER=0.2
 
-export SWANLAB_EXP_NAME="[stage1]${EXP_NAME}"
+export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
 
 bash rlhf_stage1.sh
 

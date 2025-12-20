@@ -16,3 +16,5 @@ data/
 
 .poetry/
 poetry.lock
+
+passAtK0_data.jsonl
