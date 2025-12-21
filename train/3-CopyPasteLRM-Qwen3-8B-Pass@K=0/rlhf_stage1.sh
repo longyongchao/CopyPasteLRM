@@ -57,8 +57,8 @@ swift rlhf \
     --max_length 32768 \
     --max_completion_length 2048 \
     --external_plugins reward.py \
-    --reward_funcs cplrm_format cplrm_length cplrm_copy cplrm_answer \
-    --reward_weights ${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER} \
+    --reward_funcs cplrm_format cplrm_length cplrm_answer \
+    --reward_weights ${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER} \
     --num_generations ${NUM_GENERATIONS} \
     --deepspeed zero3 \
     --temperature 1.0 \
