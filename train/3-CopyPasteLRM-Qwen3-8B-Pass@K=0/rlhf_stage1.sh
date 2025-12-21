@@ -20,6 +20,7 @@ required_vars=(
     REWARD_FUNCS
     REWARD_WEIGHTS
     NUM_TRAIN_EPOCHS
+    MAX_STEPS
 )
 
 for v in "${required_vars[@]}"; do
@@ -68,6 +69,7 @@ swift rlhf \
     --overlong_filter true \
     --save_steps ${SAVE_STEPS} \
     --eval_steps ${EVAL_STEPS} \
+    --max_steps ${MAX_STEPS} \
     --report_to swanlab \
     --swanlab_token ${SWANLAB_TOKEN} \
     --swanlab_project ${SWANLAB_PROJECT} \

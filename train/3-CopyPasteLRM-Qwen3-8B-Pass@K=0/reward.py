@@ -2,7 +2,7 @@ import re
 from typing import List, Optional, Tuple
 
 from swift.plugin import ORM, orms
-from copypastelrm.metrics.HotpotQA import update_sp, f1_score, exact_match_score
+from copypastelrm.metrics.HotpotQA import update_sp, f1_score, exact_match_score, hit_answer
 from copypastelrm.metrics.utils import remove_evidence_tags
 
 
@@ -269,8 +269,8 @@ class CopyReward(ORM):
     def __init__(self):
         self.format_validator = FormatValidator()
 
-        self.non_facts_copied_weight = 0.1
-        self.facts_copied_weight = 0.9
+        self.non_facts_copied_weight = 0.05
+        self.facts_copied_weight = 0.95
 
     def __call__(
         self, completions: List[str], solution: List[dict], **kwargs
@@ -319,23 +319,59 @@ class CopyReward(ORM):
         return rewards
 
 
-class AnswerReward(ORM):
+class AnswerLooseReward(ORM):
     """计算模型生成回答的奖励分值。
     
-    该类通过验证回答的结构格式、精确匹配度（Exact Match）以及 F1 分数来评估生成内容的质量。
+    该类通过验证回答的结构格式、F1 分数来评估生成内容的质量。
     奖励逻辑遵循以下优先级降级机制：
     1. 格式校验：如果格式非法，奖励为 0.0。
-    2. 精确匹配：如果与参考答案完全一致，奖励为 1.0。
     3. 模糊匹配：计算与参考答案的最佳 F1 分数，并按 f1_weight 比例进行缩放。
 
     Attributes:
         format_validator: 用于校验生成内容是否符合预定义结构的验证器。
-        f1_weight (float): F1 分数在最终奖励中的权重系数（默认为 0.5）。
     """
 
     def __init__(self):
         self.format_validator = FormatValidator()
-        self.f1_weight = 0.5
+
+    def __call__(
+        self, completions: List[str], solution: List[dict], **kwargs
+    ) -> List[float]:
+        rewards = []
+
+        for completion, sol in zip(completions, solution):
+            is_all_valid, _, answer_content = self.format_validator.validate_structure(completion)
+            if not is_all_valid:
+                rewards.append(0.0)
+                continue
+
+            gold_answers = sol["answers"]
+
+            best_f1 = 0.0
+
+            for gold_answer in gold_answers:
+                ans_f1, _, _ = f1_score(answer_content, gold_answer)
+                best_f1 = max(best_f1, ans_f1)
+
+            rewards.append(best_f1)
+
+        return rewards
+
+
+class AnswerStrictReward(ORM):
+    """计算模型生成回答的奖励分值。
+    
+    严格模式，计算EM，如果EM不匹配，则降级计算HIT，并且按照答案长度进行惩罚。
+
+    1. 如果EM==True，则奖励为1.0
+    2. HIT的奖励等于，HIT的长度/答案的长度
+
+    Attributes:
+        format_validator: 用于校验生成内容是否符合预定义结构的验证器。
+    """
+
+    def __init__(self):
+        self.format_validator = FormatValidator()
 
     def __call__(
         self, completions: List[str], solution: List[dict], **kwargs
@@ -352,16 +388,12 @@ class AnswerReward(ORM):
 
             em = exact_match_score(answer_content, gold_answers)
             if em:
-                rewards.append(1.0)
-                continue
+                reward = 1.0
 
-            best_f1 = 0.0
+            hit_answer = hit_answer(answer_content, gold_answers)
+            if hit_answer:
+                reward = len(hit_answer) / len(answer_content)
 
-            for gold_answer in gold_answers:
-                ans_f1, _, _ = f1_score(answer_content, gold_answer)
-                best_f1 = max(best_f1, ans_f1)
-
-            reward = self.f1_weight * best_f1
             rewards.append(reward)
 
         return rewards
@@ -370,4 +402,5 @@ class AnswerReward(ORM):
 orms["cplrm_format"] = FormatReward
 orms["cplrm_length"] = LengthtReward
 orms["cplrm_copy"] = CopyReward
-orms["cplrm_answer"] = AnswerReward
+orms["cplrm_loose_answer"] = AnswerLooseReward
+orms["cplrm_strict_answer"] = AnswerStrictReward

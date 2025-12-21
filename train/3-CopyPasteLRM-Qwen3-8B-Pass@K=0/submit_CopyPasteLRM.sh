@@ -14,27 +14,28 @@ set -e
 set -o pipefail
 
 # ================= 环境变量配置 =================
-export MODEL_NAME="Qwen/Qwen2.5-1.5B-Instruct"
+export MODEL_NAME="Qwen/Qwen3-4B-Instruct-2507"
+# export MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 # EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
 EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
 
 export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
-export RLHF_CUDA_VISIBLE_DEVICES_LIST="1"
-export RLHF_NPROC_PER_NODE=1
-export BATCH_SIZE=4
-export NUM_GENERATIONS=4 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
+export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
+export RLHF_NPROC_PER_NODE=3
+export BATCH_SIZE=3
+export NUM_GENERATIONS=3 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
 
 # 生成时间戳和实验名称
 timestamp=$(date +%Y%m%d%H%M%S)
-EXP_NAME=${MODEL_NAME}-passAtK_0-wo_copying-${timestamp}
+EXP_NAME=${MODEL_NAME}-passAtK_0-${timestamp}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
-export SPLIT_DATASET_RATIO=0.03007 
+export SPLIT_DATASET_RATIO=0.01
 
-export SAVE_STEPS=300
-export EVAL_STEPS=1000
+export SAVE_STEPS=200
+export EVAL_STEPS=500
 export DATASET_SAMPLE=3093
 export NUM_TRAIN_EPOCHS=1
 
@@ -106,13 +107,14 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_loose_answer"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.6
-export REWARD_ANSWER=0.2
+export REWARD_COPY=0.7
+export REWARD_ANSWER=0.1
 export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
+export MAX_STEPS=200
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型
 export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
@@ -146,13 +148,14 @@ echo "-------------------------------------"
 echo "========== Starting Stage 2 =========="
 
 # Stage2 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_strict_answer"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.2
-export REWARD_ANSWER=0.6
+export REWARD_COPY=0.1
+export REWARD_ANSWER=0.7
 export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
-export SWANLAB_EXP_NAME="[stage2]${EXP_NAME}"
+export SWANLAB_EXP_NAME="[stage2]-${EXP_NAME}"
+export MAX_STEPS=1000
 
 # 1. 设置 Stage 2 的 Rollout 模型为 Stage 1 的产出
 # 注意：通常 GRPO 需要加载上一轮训练后的模型来采样

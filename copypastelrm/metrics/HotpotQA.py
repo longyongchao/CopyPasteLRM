@@ -126,6 +126,24 @@ def hit_score(prediction, gold_answers):
             return True
     return False
 
+def hit_answer(prediction, gold_answers):
+    """
+    检查预测答案是否在标准答案中
+
+    适用于多选题或包含多个可能答案的情况
+
+    Args:
+        prediction (str): 模型预测的答案
+        ground_truth (str): 标准答案
+
+    Returns:
+        bool: 如果预测答案在标准答案中返回 True，否则返回 False
+    """
+    for gold_answer in gold_answers:
+        if normalize_answer(gold_answer) in normalize_answer(prediction):
+            return gold_answer
+    return None
+
 
 def update_answer(metrics: dict, prediction: str, gold_answers: list[str]) -> tuple[float, float, float]:
     """
