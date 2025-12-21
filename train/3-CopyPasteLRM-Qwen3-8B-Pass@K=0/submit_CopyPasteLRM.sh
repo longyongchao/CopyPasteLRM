@@ -14,17 +14,16 @@ set -e
 set -o pipefail
 
 # ================= 环境变量配置 =================
-export MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
-EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
-# EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
+export MODEL_NAME="Qwen/Qwen2.5-1.5B-Instruct"
+# EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
+EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
 
 export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
-export VLLM_PORT=8866
 
-export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
-export RLHF_NPROC_PER_NODE=3
+export RLHF_CUDA_VISIBLE_DEVICES_LIST="1"
+export RLHF_NPROC_PER_NODE=1
 export BATCH_SIZE=4
-export NUM_GENERATIONS=12 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
+export NUM_GENERATIONS=4 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
 
 # 生成时间戳和实验名称
 timestamp=$(date +%Y%m%d%H%M%S)
@@ -49,12 +48,12 @@ export SWANLAB_LARK_SECRET="IzE5LR2O7ojQkRUO9g96Qe"
 
 # 函数：等待 vLLM 服务启动
 function wait_for_vllm() {
-    echo "[Pipeline] Waiting for vLLM to be ready on port ${VLLM_PORT}..."
+    echo "[Pipeline] Waiting for vLLM to be ready on port 8000..."
     local max_retries=60  # 等待 60 * 10s = 10分钟
     local count=0
     
     # 循环检查 /health 接口状态码是否为 200
-    while ! curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${VLLM_PORT}/health | grep -q "200"; do
+    while ! curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health/ | grep -q "200"; do
         if [ $count -ge $max_retries ]; then
             echo "[Error] vLLM failed to start within timeout."
             return 1
@@ -66,20 +65,6 @@ function wait_for_vllm() {
     echo "[Pipeline] vLLM is ready!"
 }
 
-# 函数：清理后台进程
-function cleanup_rollout() {
-    if [ -n "$ROLLOUT_PID" ]; then
-        echo "[Pipeline] Stopping vLLM (PID: $ROLLOUT_PID)..."
-        kill $ROLLOUT_PID || true
-        wait $ROLLOUT_PID || true
-        echo "[Pipeline] vLLM stopped."
-        # 稍微等待端口释放
-        sleep 5
-    fi
-}
-
-# 确保脚本退出时清理进程（防止意外退出导致僵尸进程）
-trap cleanup_rollout EXIT
 
 # ================= Stage 1 =================
 echo "========== Starting Stage 1 =========="
@@ -101,6 +86,8 @@ echo "[Stage 1] Launching Rollout Service..."
 bash rollout.sh > rollout_stage1.log 2>&1 &
 ROLLOUT_PID=$!
 
+echo "[Stage 1] Rollout Service PID: $ROLLOUT_PID"
+
 # 3. 等待服务就绪
 wait_for_vllm
 
@@ -108,8 +95,6 @@ wait_for_vllm
 echo "[Stage 1] Starting RLHF Training..."
 bash rlhf_stage1.sh
 
-# 5. 训练完成，清理服务
-cleanup_rollout
 
 # 检查产物
 STAGE1_LAST=${STAGE1_OUTPUT_DIR}/last
@@ -139,8 +124,6 @@ export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
 
 # 2. 后台启动 Rollout 服务 (重新拉起)
 echo "[Stage 2] Launching Rollout Service with Stage 1 Checkpoint..."
-bash rollout.sh > rollout_stage2.log 2>&1 &
-ROLLOUT_PID=$!
 
 # 3. 等待服务就绪
 wait_for_vllm
@@ -148,10 +131,5 @@ wait_for_vllm
 # 4. 启动 Stage 2 训练
 echo "[Stage 2] Starting RLHF Training..."
 bash rlhf_stage2.sh
-
-# 5. 训练完成，清理服务 (trap 会自动再次处理，但显式调用更安全)
-cleanup_rollout
-# 重置PID防止trap重复kill
-ROLLOUT_PID=""
 
 echo "========== Pipeline Completed Successfully =========="
