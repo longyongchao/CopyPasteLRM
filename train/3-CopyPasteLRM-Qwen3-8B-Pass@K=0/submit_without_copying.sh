@@ -13,30 +13,41 @@
 set -e
 set -o pipefail
 
+# 定义要判断的核心目录
+TARGET_DIR="/mnt/lustre/DATA/longyongchao"
+
+# 判断目录是否存在，并给EXP_ROOT赋值
+if [[ -d "$TARGET_DIR" ]]; then
+    # 目录存在时，赋值为第一个路径
+    EXP_ROOT="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint"
+else
+    # 目录不存在时，赋值为第二个路径
+    EXP_ROOT="/data/lyc/CopyPasteLRM/checkpoint"
+fi
+
 # ================= 环境变量配置 =================
-export MODEL_NAME="Qwen/Qwen2.5-1.5B-Instruct"
-# EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
-EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
+export MODEL_NAME="Qwen/Qwen3-4B-Instruct-2507"
+# export MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
 
 export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
 export RLHF_CUDA_VISIBLE_DEVICES_LIST="1"
 export RLHF_NPROC_PER_NODE=1
-export BATCH_SIZE=4
-export NUM_GENERATIONS=4 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
+export BATCH_SIZE=9
+export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
 
 # 生成时间戳和实验名称
 timestamp=$(date +%Y%m%d%H%M%S)
-EXP_NAME=${MODEL_NAME}-passAtK_0-wo_copying-${timestamp}
+EXP_NAME=${MODEL_NAME}-passAtK_0-without-copying-${timestamp}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
-export SPLIT_DATASET_RATIO=0.03007 
+export SPLIT_DATASET_RATIO=0.01
 
-export SAVE_STEPS=300
-export EVAL_STEPS=1000
+export SAVE_STEPS=200
+export EVAL_STEPS=500
 export DATASET_SAMPLE=3093
-export NUM_TRAIN_EPOCHS=2
+export NUM_TRAIN_EPOCHS=1
 
 # SwanLab 配置
 export SWANLAB_PROJECT="CopyPasteLRM"
@@ -106,12 +117,13 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_loose_answer"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
 export REWARD_ANSWER=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
+export MAX_STEPS=200
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型
 export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
@@ -141,4 +153,32 @@ fi
 echo "[Stage 1] Completed Successfully."
 echo "-------------------------------------"
 
+# ================= Stage 2 =================
+echo "========== Starting Stage 2 =========="
+
+# Stage2 Rewards
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_strict_answer"
+export REWARD_FORMAT=0.1
+export REWARD_LENGTH=0.1
+export REWARD_ANSWER=0.8
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
+export SWANLAB_EXP_NAME="[stage2]-${EXP_NAME}"
+export MAX_STEPS=1000
+
+# 1. 设置 Stage 2 的 Rollout 模型为 Stage 1 的产出
+# 注意：通常 GRPO 需要加载上一轮训练后的模型来采样
+export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
+
+# 2. 后台启动 Rollout 服务 (重新拉起)
+echo "[Stage 2] Launching Rollout Service with Stage 1 Checkpoint..."
+
+# 3. 等待服务就绪
+wait_for_vllm
+
+# 4. 启动 Stage 2 训练
+echo "[Stage 2] Starting RLHF Training..."
+bash rlhf_stage2.sh
+
 cleanup_rollout
+
+echo "========== Pipeline Completed Successfully =========="
