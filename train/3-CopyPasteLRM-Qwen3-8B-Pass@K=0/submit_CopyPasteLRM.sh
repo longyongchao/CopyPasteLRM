@@ -14,16 +14,16 @@ set -e
 set -o pipefail
 
 # ================= 环境变量配置 =================
-export MODEL_NAME="Qwen/Qwen2.5-1.5B-Instruct"
-# EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
-EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
+export MODEL_NAME="Qwen/Qwen2.5-3B-Instruct"
+EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
+# EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
 
 export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
-export RLHF_CUDA_VISIBLE_DEVICES_LIST="1"
-export RLHF_NPROC_PER_NODE=1
+export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
+export RLHF_NPROC_PER_NODE=3
 export BATCH_SIZE=4
-export NUM_GENERATIONS=4 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
+export NUM_GENERATIONS=12 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
 
 # 生成时间戳和实验名称
 timestamp=$(date +%Y%m%d%H%M%S)
