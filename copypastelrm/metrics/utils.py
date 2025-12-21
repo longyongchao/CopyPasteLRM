@@ -3,16 +3,16 @@ from typing import Any, Dict, List, Tuple
 
 def remove_evidence_tags(text):
     """
-    删除字符串中被<EVIDENCE></EVIDENCE>包裹的内容（包括标签本身）
+    删除字符串中被<|EVIDENCE|></|EVIDENCE|>包裹的内容（包括标签本身）
     
     参数:
-        text (str): 包含<EVIDENCE>标签的原始字符串
+        text (str): 包含<|EVIDENCE|>标签的原始字符串
     
     返回:
         str: 移除标签及包裹内容后的字符串
     """
-    # 正则表达式匹配<EVIDENCE>和</EVIDENCE>之间的所有内容（包括标签）
-    pattern = r'<EVIDENCE>.*?</EVIDENCE>'
+    # 正则表达式匹配<|EVIDENCE|>和</|EVIDENCE|>之间的所有内容（包括标签）
+    pattern = r'<|EVIDENCE|>.*?</|EVIDENCE|>'
     # 使用re.sub替换匹配到的内容为空字符串，re.DOTALL让.匹配换行符
     cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL)
     # 去除替换后可能产生的多余空格（可选，根据需求调整）
@@ -35,7 +35,7 @@ def extract_answer_and_facts(predict: str) -> Tuple[str, List[List[str]]]:
     answer_match = re.findall(pattern, predict)
     if answer_match and len(answer_match) > 0:
         predict_answer = answer_match[-1]
-        predict_answer = predict_answer.replace("<answer>", "").replace("</answer>", "").replace("<Answer>", "").replace("</Answer>", "")
+        predict_answer = predict_answer.replace("<|answer|>", "").replace("</|answer|>", "").replace("<|answer|>", "").replace("</|answer|>", "")
         predict_answer = remove_evidence_tags(predict_answer)
         predict_answer = predict_answer.replace("<", "").replace(">", "")
 
@@ -43,7 +43,7 @@ def extract_answer_and_facts(predict: str) -> Tuple[str, List[List[str]]]:
         predict_answer = None
 
     # 提取所有 <copy> 标签中的内容
-    evidence_matches = re.findall(r"<EVIDENCE>(.*?)</EVIDENCE>", predict, re.DOTALL)
+    evidence_matches = re.findall(r"<|EVIDENCE|>(.*?)</|EVIDENCE|>", predict, re.DOTALL)
     predict_sfs = [match.strip() for match in evidence_matches]
 
     return predict_answer, predict_sfs
@@ -60,7 +60,7 @@ def extract_answer_and_facts_old(predict: str) -> Tuple[str, List[List[str]]]:
     if not isinstance(predict, str):
         return None, []
     # 提取答案
-    pattern = r'<answer>(.*?)</answer>'
+    pattern = r'<|answer|>(.*?)</|answer|>'
     # 执行匹配（非贪婪模式，确保只匹配最近的闭合标签）
     match = re.search(pattern, predict, re.DOTALL)
     # 返回匹配结果，无匹配则返回空字符串

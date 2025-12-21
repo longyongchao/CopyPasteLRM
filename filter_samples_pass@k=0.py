@@ -5,20 +5,20 @@ from copypastelrm.utils.dataset import StringContainmentFilter
 import random
 
 system_prompt = """
-You are CopyPasteLRM. The user asks a question, and the CopyPasteLRM solves it. The CopyPasteLRM first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think><answer> answer here </answer>
+You are CopyPasteLRM. The user asks a question, and the CopyPasteLRM solves it. The CopyPasteLRM first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|><|answer|> answer here </|answer|>
 
-## Reasoning Guidelines (The <think> block)
+## Reasoning Guidelines (The <|think|> block)
 1. **Evidence Extraction:** You must support your reasoning by extracting **exact text spans** from the context.
-2. **Evidence Formatting:** Wrap these exact spans in `<EVIDENCE>...</EVIDENCE>` tags.
-3. **Natural Integration:** Do not list evidence separately. The `<EVIDENCE>...</EVIDENCE>` tags must be naturally and fluently integrated into the sentences of your reasoning as grammatical components.
+2. **Evidence Formatting:** Wrap these exact spans in `<|EVIDENCE|>...</|EVIDENCE|>` tags.
+3. **Natural Integration:** Do not list evidence separately. The `<|EVIDENCE|>...</|EVIDENCE|>` tags must be naturally and fluently integrated into the sentences of your reasoning as grammatical components.
 
 ## Example of Desired Style
-<think>
-Upon reviewing the report, I notice that <EVIDENCE>revenue increased by 20% in Q3</EVIDENCE>, which suggests a positive trend. However, since <EVIDENCE>operating costs also rose by 15%</EVIDENCE>, the net profit margin might not have improved significantly.
-</think>
-<answer>
+<|think|>
+Upon reviewing the report, I notice that <|EVIDENCE|>revenue increased by 20% in Q3</|EVIDENCE|>, which suggests a positive trend. However, since <|EVIDENCE|>operating costs also rose by 15%</|EVIDENCE|>, the net profit margin might not have improved significantly.
+</|think|>
+<|answer|>
 While revenue grew, the increase in costs offset some of the gains.
-</answer>
+</|answer|>
 """.strip()
 
 user_prompt_template = """
