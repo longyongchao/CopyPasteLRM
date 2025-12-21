@@ -13,11 +13,21 @@
 set -e
 set -o pipefail
 
+# 定义要判断的核心目录
+TARGET_DIR="/mnt/lustre/DATA/longyongchao"
+
+# 判断目录是否存在，并给EXP_ROOT赋值
+if [[ -d "$TARGET_DIR" ]]; then
+    # 目录存在时，赋值为第一个路径
+    EXP_ROOT="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint"
+else
+    # 目录不存在时，赋值为第二个路径
+    EXP_ROOT="/data/lyc/CopyPasteLRM/checkpoint"
+fi
+
 # ================= 环境变量配置 =================
 export MODEL_NAME="Qwen/Qwen3-4B-Instruct-2507"
 # export MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
-# EXP_ROOT=/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint
-EXP_ROOT=/data/lyc/CopyPasteLRM/checkpoint
 
 export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
