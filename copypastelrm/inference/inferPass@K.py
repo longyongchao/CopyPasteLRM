@@ -126,7 +126,7 @@ def process_single_sample_pass_at_k(
                 if not is_correct:
                     tips_wrong_answer.add(predict_answer)
 
-                if attempt_idx > 512 and is_correct:
+                if attempt_idx > 32 and is_correct:
                     print("✅", sample_id, attempt_idx, is_correct)
 
             # 记录当前采样结果
@@ -138,11 +138,14 @@ def process_single_sample_pass_at_k(
                 "tips_wrong_answer": list(tips_wrong_answer),
                 "recieved_tips": attempt_idx > prior_threshold,
             }
-            results_list.append(record)
+
+            if not is_correct and attempt_idx == k:
+                results_list.append(record)
+            elif is_correct:
+                results_list.append(record)
+                break
 
             # 论文逻辑：如果回答正确，终止对该样本的后续采样
-            if is_correct:
-                break
 
         return results_list
 
