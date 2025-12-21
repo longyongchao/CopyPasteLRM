@@ -8,10 +8,6 @@ required_vars=(
     SWANLAB_EXP_NAME
     SWANLAB_LARK_WEBHOOK_URL
     SWANLAB_LARK_SECRET
-    REWARD_FORMAT
-    REWARD_LENGTH
-    REWARD_COPY
-    REWARD_ANSWER
     MODEL_NAME
     DATASET_SAMPLE
     SAVE_STEPS
@@ -20,6 +16,10 @@ required_vars=(
     NUM_GENERATIONS
     BATCH_SIZE
     SPLIT_DATASET_RATIO
+    EVAL_STEPS
+    REWARD_FUNCS
+    REWARD_WEIGHTS
+    NUM_TRAIN_EPOCHS
 )
 
 for v in "${required_vars[@]}"; do
@@ -41,7 +41,7 @@ swift rlhf \
     --split_dataset_ratio ${SPLIT_DATASET_RATIO} \
     --load_from_cache_file true \
     --torch_dtype bfloat16 \
-    --num_train_epochs 1 \
+    --num_train_epochs ${NUM_TRAIN_EPOCHS} \
     --download_mode force_redownload \
     --per_device_train_batch_size ${BATCH_SIZE} \
     --per_device_eval_batch_size ${BATCH_SIZE} \
@@ -57,8 +57,8 @@ swift rlhf \
     --max_length 32768 \
     --max_completion_length 2048 \
     --external_plugins reward.py \
-    --reward_funcs cplrm_format cplrm_length cplrm_answer \
-    --reward_weights ${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER} \
+    --reward_funcs ${REWARD_FUNCS} \
+    --reward_weights ${REWARD_WEIGHTS} \
     --num_generations ${NUM_GENERATIONS} \
     --deepspeed zero3 \
     --temperature 1.0 \
@@ -67,6 +67,7 @@ swift rlhf \
     --log_entropy true \
     --overlong_filter true \
     --save_steps ${SAVE_STEPS} \
+    --eval_steps ${EVAL_STEPS} \
     --report_to swanlab \
     --swanlab_token ${SWANLAB_TOKEN} \
     --swanlab_project ${SWANLAB_PROJECT} \
@@ -77,12 +78,9 @@ swift rlhf \
     --beta 0.1 \
     --dynamic_sample true \
     --epsilon_high 0.25 \
-    # --use_vllm true \
-    # --vllm_mode colocate \
-    # --vllm_gpu_memory_utilization 0.4 \
-    # --sleep_level 1 \
-    # --offload_model true \
-    # --offload_optimizer true \
-    # --vllm_tensor_parallel_size 1 \
-    # --vllm_max_model_len 32768 \
+    --use_vllm true \
+    --vllm_mode server \
+    --vllm_server_host 127.0.0.1 \
+    --vllm_server_port ${VLLM_PORT} \
+    --rollout_importance_sampling_mode token_mask \
 
