@@ -12,13 +12,13 @@ class FormatValidator:
     def __init__(self):
         self.html_tag_pattern = re.compile(r"<(/?)(\w+)>")
         self.think_pattern = re.compile(
-            r"<|think|>(.*?)</|think|>", re.DOTALL | re.IGNORECASE
+            r"<\|think\|>(.*?)</|think\|>", re.DOTALL | re.IGNORECASE
         )
         self.answer_pattern = re.compile(
-            r"<|answer|>(.*?)</|answer|>", re.DOTALL | re.IGNORECASE
+            r"<\|answer\|>(.*?)</|answer\|>", re.DOTALL | re.IGNORECASE
         )
         self.copy_pattern = re.compile(
-            r"<|EVIDENCE|>(.*?)</|EVIDENCE|>", re.DOTALL | re.IGNORECASE
+            r"<\|EVIDENCE\|>(.*?)</|EVIDENCE\|>", re.DOTALL | re.IGNORECASE
         )
 
     def validate_html_tags(self, text: str) -> bool:
@@ -390,9 +390,9 @@ class AnswerStrictReward(ORM):
             if em:
                 reward = 1.0
 
-            hit_answer = hit_answer(answer_content, gold_answers)
-            if hit_answer:
-                reward = len(hit_answer) / len(answer_content)
+            hit_gold = hit_answer(answer_content, gold_answers)
+            if hit_gold:
+                reward = len(hit_gold) / len(answer_content)
 
             rewards.append(reward)
 

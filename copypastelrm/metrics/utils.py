@@ -12,7 +12,7 @@ def remove_evidence_tags(text):
         str: 移除标签及包裹内容后的字符串
     """
     # 正则表达式匹配<|EVIDENCE|>和</|EVIDENCE|>之间的所有内容（包括标签）
-    pattern = r'<|EVIDENCE|>.*?</|EVIDENCE|>'
+    pattern = r'<\|EVIDENCE\|>.*?</\|EVIDENCE\|>'
     # 使用re.sub替换匹配到的内容为空字符串，re.DOTALL让.匹配换行符
     cleaned_text = re.sub(pattern, '', text, flags=re.DOTALL)
     # 去除替换后可能产生的多余空格（可选，根据需求调整）
@@ -43,7 +43,7 @@ def extract_answer_and_facts(predict: str) -> Tuple[str, List[List[str]]]:
         predict_answer = None
 
     # 提取所有 <copy> 标签中的内容
-    evidence_matches = re.findall(r"<|EVIDENCE|>(.*?)</|EVIDENCE|>", predict, re.DOTALL)
+    evidence_matches = re.findall(r"<\|EVIDENCE\|>(.*?)</\|EVIDENCE\|>", predict, re.DOTALL)
     predict_sfs = [match.strip() for match in evidence_matches]
 
     return predict_answer, predict_sfs
@@ -60,14 +60,14 @@ def extract_answer_and_facts_old(predict: str) -> Tuple[str, List[List[str]]]:
     if not isinstance(predict, str):
         return None, []
     # 提取答案
-    pattern = r'<|answer|>(.*?)</|answer|>'
+    pattern = r'<\|answer\|>(.*?)</\|answer\|>'
     # 执行匹配（非贪婪模式，确保只匹配最近的闭合标签）
     match = re.search(pattern, predict, re.DOTALL)
     # 返回匹配结果，无匹配则返回空字符串
     predict_answer = match.group(1).strip() if match else ''
 
     # 提取所有 <copy> 标签中的内容
-    evidence_matches = re.findall(r"<copy>(.*?)</copy>", predict, re.DOTALL)
+    evidence_matches = re.findall(r"<\|EVIDENCE\|>(.*?)</\|EVIDENCE\|>", predict, re.DOTALL)
     predict_sfs = [match.strip() for match in evidence_matches]
 
     return predict_answer, predict_sfs
@@ -95,19 +95,26 @@ if __name__ == "__main__":
     import json
     import random
 
-    path = "results/infer/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen2.5-3B-Instruct/copypaste/enable_thinking_False-prompt_reasoning_with_copypaste_old-1765207378.json"
-    with open(path) as f:
-        data = json.load(f)
-    info = data["info"]
-    data = data["data"]
+    text = "<|think|>\nThe question asks who was the producer of \"Bean,\" but the term \"Bean\" refers to multiple entities in the context: a film, a sitcom, a play, a car company, a painting, and a person. To determine the most likely intended reference, we consider the most prominent and clearly defined \"Bean\" that involves production.\n\nThe film \"Bean\" (1997) is explicitly described as a British-American venture produced by Working Title Films, Tiger Aspect Films, PolyGram Filmed Entertainment and Gramercy Pictures. This directly answers the question about the producer of the film \"Bean.\" \n\nAdditionally, the sitcom \"Mr. Bean\" is produced by Tiger Aspect Productions. However, the film \"Bean\" is explicitly linked to specific production companies. \n\nThus, the producer of the film \"Bean\" (1997) is clearly stated in the context: <|EVIDENCE|>It is a British-American venture produced by Working Title Films, Tiger Aspect Films, PolyGram Filmed Entertainment and Gramercy Pictures.</|EVIDENCE|>. \n\nNo other \"Bean\" entity in the context is explicitly described with a producer role in a way that directly answers the question without ambiguity.\n</|think|>\n<|answer|>Working Title Films, Tiger Aspect Films, PolyGram Filmed Entertainment, and Gramercy Pictures</|answer|><|im_end|>"
 
-    ids = data.keys()
-    # 随机选一个id
-    id = random.choice(list(ids))
+    predict_answer, predict_sfs = extract_answer_and_facts_old(text)
 
-    predict = data[id]["predict"]
-    print(predict)
-    answer, sfs = extract_answer_and_facts_old(predict)
-    print("----" * 10)
-    print(answer)
-    print(sfs)
+    print(predict_answer)
+    print(predict_sfs)
+
+    # path = "results/infer/resamples_-1/seed_42/tpr_0.7-tpp_0.95/Qwen2.5-3B-Instruct/copypaste/enable_thinking_False-prompt_reasoning_with_copypaste_old-1765207378.json"
+    # with open(path) as f:
+    #     data = json.load(f)
+    # info = data["info"]
+    # data = data["data"]
+
+    # ids = data.keys()
+    # # 随机选一个id
+    # id = random.choice(list(ids))
+
+    # predict = data[id]["predict"]
+    # print(predict)
+    # answer, sfs = extract_answer_and_facts_old(predict)
+    # print("----" * 10)
+    # print(answer)
+    # print(sfs)
