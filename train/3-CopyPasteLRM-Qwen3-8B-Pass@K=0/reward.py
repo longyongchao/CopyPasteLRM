@@ -387,12 +387,14 @@ class AnswerStrictReward(ORM):
             gold_answers = sol["answers"]
 
             em = exact_match_score(answer_content, gold_answers)
+            hit_gold = hit_answer(answer_content, gold_answers)
             if em:
                 reward = 1.0
-
-            hit_gold = hit_answer(answer_content, gold_answers)
-            if hit_gold:
+            elif hit_gold:
                 reward = len(hit_gold) / len(answer_content)
+            else:
+                reward = 0
+
 
             rewards.append(reward)
 
