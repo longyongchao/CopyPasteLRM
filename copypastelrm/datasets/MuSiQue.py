@@ -41,7 +41,7 @@ class MuSiQue(BaseDatasetLoader):
         
 
 if __name__ == "__main__":
-    loader = MuSiQue(reload=True)
+    loader = MuSiQue(reload=True, split='validation')
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
     loader.random_sample()

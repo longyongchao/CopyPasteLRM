@@ -22,6 +22,7 @@ class BaseDatasetLoader(ABC):
         reload: bool = False,
         format: bool = True,
         max_samples: int = -1,
+        filter_empty_answer: bool = True,
     ):
         """
         初始化数据集加载器
@@ -43,6 +44,7 @@ class BaseDatasetLoader(ABC):
         else:
             file_name = f"{self.dataset_path.replace('.json', '').replace('/', '-')}-{self.split}"
         self.cache_path = cache_dir + f"{file_name}.jsonl"
+        self.filter_empty_answer = filter_empty_answer
 
         # 检查cache_path是否以.jsonl结尾
         if self.cache_path:
@@ -100,6 +102,8 @@ class BaseDatasetLoader(ABC):
             with open(self.cache_path, "r") as f:
                 print(f"🎯Loading dataset from cache: {self.cache_path}")
                 formatted_dataset_list = json.load(f)
+                if self.filter_empty_answer:
+                    formatted_dataset_list = self.get_non_empty_answer(formatted_dataset_list)
                 self.dataset_list = formatted_dataset_list
                 dataset_dict = {}
                 for sample in formatted_dataset_list:
@@ -133,9 +137,17 @@ class BaseDatasetLoader(ABC):
                     indent=4,
                 )
 
+        if self.filter_empty_answer:
+            formatted_dataset_list = self.get_non_empty_answer(formatted_dataset_list)
+            formatted_dataset_dict = {}
+            for sample in formatted_dataset_list:
+                formatted_dataset_dict[sample["id"]] = sample
         self.dataset_list = formatted_dataset_list
 
         return formatted_dataset_dict
+    
+    def get_non_empty_answer(self, data: list) -> list:
+        return [sample for sample in data if len(sample["answer"]) > 0]
 
     def format_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -153,6 +165,7 @@ class BaseDatasetLoader(ABC):
             "context": self.format_context(sample),
             "answer": self.format_answer(sample),
             "sfs": self.format_supporting_facts(sample),
+            "dataset": self.dataset_path if 'dataset' not in sample else sample['dataset'],
         }
 
         return formatted_sample

@@ -7,7 +7,7 @@ from typing import Literal
 class PopQA(BaseDatasetLoader):
     """非官方来源：https://huggingface.co/datasets/Atipico1/popQA"""
 
-    def __init__(self, split: Literal['train', 'test'] = 'test', reload: bool = False, max_samples: int = -1):
+    def __init__(self, split: Literal['train', 'test'] = 'train', reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="Atipico1/popQA",
             split=split,

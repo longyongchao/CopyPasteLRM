@@ -51,7 +51,7 @@ class HotpotQA(BaseDatasetLoader):
 
 
 if __name__ == "__main__":
-    loader = HotpotQA(reload=True)
+    loader = HotpotQA(reload=True,split='validation')
     dataset = loader.dataset
     dataset_list = loader.dataset_list
-    print(dataset_list[:5])
+    print(dataset_list[0])

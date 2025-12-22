@@ -90,7 +90,6 @@ class Qasper(BaseDatasetLoader):
 
 
 if __name__ == "__main__":
-    loader = Qasper(reload=True)
+    loader = Qasper(reload=True, split='validation')
     dataset = loader.dataset
     print(loader.get_length())
-    print(loader.random_sample())

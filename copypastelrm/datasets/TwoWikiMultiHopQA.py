@@ -53,7 +53,6 @@ class TwoWikiMultihopQA(BaseDatasetLoader):
         
 
 if __name__ == "__main__":
-    loader = TwoWikiMultihopQA(reload=True)
+    loader = TwoWikiMultihopQA(reload=True, split='dev')
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
-    print(loader.get_sample('e2a3bf2a0bdd11eba7f7acde48001122'))

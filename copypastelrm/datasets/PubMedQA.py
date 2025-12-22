@@ -9,7 +9,7 @@ class PubMedQA(BaseDatasetLoader):
     def __init__(self, dataset_name: Literal["pqa_labeled", "pqa_unlabeled", "pqa_artificial"] = "pqa_labeled",  reload: bool = False, max_samples: int = -1):
         super().__init__(
             dataset_path="qiaojin/PubMedQA",
-            dataset_name="pqa_labeled",
+            dataset_name=dataset_name,
             split="train",
             offline=True,
             reload=reload,
@@ -44,9 +44,6 @@ class PubMedQA(BaseDatasetLoader):
         return []
 
 if __name__ == "__main__":
-    loader = PubMedQA(reload=True)
+    loader = PubMedQA(reload=True, dataset_name='pqa_labeled')
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
-    loader.random_sample()
-
-
