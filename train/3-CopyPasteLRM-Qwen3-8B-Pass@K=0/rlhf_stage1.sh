@@ -9,7 +9,6 @@ required_vars=(
     SWANLAB_LARK_WEBHOOK_URL
     SWANLAB_LARK_SECRET
     MODEL_NAME
-    DATASET_SAMPLE
     SAVE_STEPS
     RLHF_NPROC_PER_NODE
     RLHF_CUDA_VISIBLE_DEVICES_LIST
@@ -21,6 +20,7 @@ required_vars=(
     REWARD_WEIGHTS
     NUM_TRAIN_EPOCHS
     MAX_STEPS
+    RLHF_DATASET
 )
 
 for v in "${required_vars[@]}"; do
@@ -37,7 +37,7 @@ swift rlhf \
     --model ${MODEL_NAME} \
     --train_type full \
     --custom_register_path dataset.py \
-    --dataset "copypaste_qa#${DATASET_SAMPLE}" \
+    --dataset ${RLHF_DATASET} \
     --data_seed 42 \
     --split_dataset_ratio ${SPLIT_DATASET_RATIO} \
     --load_from_cache_file true \

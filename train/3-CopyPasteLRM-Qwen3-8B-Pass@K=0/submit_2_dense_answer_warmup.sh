@@ -35,18 +35,18 @@ export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
 export BATCH_SIZE=3
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
+export RLHF_DATASET="Qwen3-4B-I_2000_deepseek"
 
 # 生成时间戳和实验名称
 timestamp=$(date +%Y%m%d%H%M%S)
-EXP_NAME=${MODEL_NAME}-passAtK_0-${timestamp}
+EXP_NAME=${MODEL_NAME}-dense_answer_warmup-${timestamp}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
-export SPLIT_DATASET_RATIO=0.01
+export SPLIT_DATASET_RATIO=0.0092470277
 
 export SAVE_STEPS=200
-export EVAL_STEPS=500
-export DATASET_SAMPLE=3093
+export EVAL_STEPS=300
 export NUM_TRAIN_EPOCHS=1
 
 # SwanLab 配置
@@ -117,14 +117,13 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_loose_answer"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_f1"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.7
-export REWARD_ANSWER=0.1
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
+export REWARD_ANSWER=0.8
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
-export MAX_STEPS=200
+export MAX_STEPS=-1
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型
 export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
@@ -158,14 +157,13 @@ echo "-------------------------------------"
 echo "========== Starting Stage 2 =========="
 
 # Stage2 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_strict_answer"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_em"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.1
-export REWARD_ANSWER=0.7
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
+export REWARD_ANSWER=0.8
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage2]-${EXP_NAME}"
-export MAX_STEPS=1000
+export MAX_STEPS=-1
 
 # 1. 设置 Stage 2 的 Rollout 模型为 Stage 1 的产出
 # 注意：通常 GRPO 需要加载上一轮训练后的模型来采样
