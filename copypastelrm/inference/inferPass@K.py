@@ -159,10 +159,11 @@ def run_inference(
     server_url: str,
     model_name: str,
     output_file: str,
-    max_samples: int = None,
+    max_samples: int = -1,
     prior_threshold: int = 64,
     num_threads: int = 16,
     dataset_name: str = "hotpotqa",
+    split: str = "train",
     api_key: str = "sk-wingchiu",
     temperature: float = 0.6,
     top_p: float = 0.95,
@@ -178,20 +179,20 @@ def run_inference(
     # 加载数据集
     # ... (数据集加载逻辑保持不变)
     if dataset_name == "hotpotqa":
-        dataset_loader = HotpotQA(max_samples=max_samples, split="train")
+        dataset_loader = HotpotQA(max_samples=max_samples, split="train" if split == "train" else "validation")
     elif dataset_name == "multirc":
-        dataset_loader = MultiRC(max_samples=max_samples, split='train')
+        dataset_loader = MultiRC(max_samples=max_samples, split='train' if split == "train" else "dev")
     elif dataset_name == "musique":
-        dataset_loader = MuSiQue(max_samples=max_samples, split="train")
+        dataset_loader = MuSiQue(max_samples=max_samples, split="train" if split == "train" else 'validation')
     elif dataset_name == "popqa":
-        dataset_loader = PopQA(max_samples=max_samples, split="train")
+        dataset_loader = PopQA(max_samples=max_samples, split="train" if split == 'train' else 'test')
     elif dataset_name == "qasper":
-        dataset_loader = Qasper(max_samples=max_samples, split="train")
+        dataset_loader = Qasper(max_samples=max_samples, split="train" if split == 'train' else 'test')
     elif dataset_name == "2wikimultihopqa":
-        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split="dev")
+        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split="dev" if split == 'train' else 'test')
 
     elif dataset_name == "pubmedqa":
-        dataset_loader = PubMedQA(max_samples=max_samples)
+        dataset_loader = PubMedQA(max_samples=max_samples, dataset_name='pqa_artificial' if split == 'train' else 'pqa_labeled')
     elif dataset_name == "faitheval":
         dataset_loader = FaithEval(max_samples=max_samples)
     elif dataset_name == "copypaste":
@@ -276,7 +277,7 @@ def main():
         required=True,
         help="模型名称",
     )
-    parser.add_argument("--max-samples", type=int, default=None, help="最大处理样本数")
+    parser.add_argument("--max-samples", type=int, default=-1, help="最大处理样本数")
     parser.add_argument(
         "--prior-threshold",
         type=int,
@@ -294,6 +295,12 @@ def main():
         help="数据集名称",
     )
     parser.add_argument(
+        "--split",
+        type=str,
+        default="train",
+        help="数据集划分",
+    )
+    parser.add_argument(
         "--api-key",
         type=str,
         default="sk-wingchiu",
@@ -309,7 +316,7 @@ def main():
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
 
     # 修改输出文件名，增加 k 值标识，后缀改为 .jsonl
-    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
+    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.split}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
 
     assert args.prior_threshold < args.k, "错误提示阈值不能大于最大采样次数"
 
@@ -325,6 +332,7 @@ def main():
         prior_threshold=args.prior_threshold,
         num_threads=args.num_threads,
         dataset_name=args.dataset,
+        split=args.split,
         api_key=args.api_key,
         temperature=args.temperature,
         top_p=args.top_p,

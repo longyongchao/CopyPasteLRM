@@ -14,6 +14,8 @@ DATASETS=(
     "2wikimultihopqa"
     "musique"
     "hotpotqa"
+    "pubmedqa"
+    "faitheval"
 )
 
 # 模型和服务器配置
@@ -29,7 +31,8 @@ PRIOR_THRESHOLD=32
 TEMPERATURE=1.0                   # 模型生成温度
 TOP_P=0.95                        # 模型生成 top-p
 NUM_THREADS=128                   # 并行推理的线程数量
-MAX_SAMPLES=10000                  # 最大处理样本数 (设置为 None 则处理全部)
+MAX_SAMPLES=-1                  # 最大处理样本数 (设置为 None 则处理全部)
+SPLIT="test"                     # 数据集划分 (train/test)
 
 # 检查 Python 文件是否存在
 if [ ! -f "copypastelrm/inference/inferPass@K.py" ]; then
@@ -54,6 +57,7 @@ for DATASET_NAME in "${DATASETS[@]}"; do
         --server-url "${SERVER_URL}" \
         --model-name "${MODEL_NAME}" \
         --dataset "${DATASET_NAME}" \
+        --split "${SPLIT}" \
         --api-key "${API_KEY}" \
         --num-threads "${NUM_THREADS}" \
         --max-samples "${MAX_SAMPLES}" \
