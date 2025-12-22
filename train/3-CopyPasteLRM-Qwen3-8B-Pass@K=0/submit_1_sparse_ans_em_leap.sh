@@ -50,6 +50,7 @@ export EVAL_STEPS=300
 export NUM_TRAIN_EPOCHS=1
 
 # SwanLab 配置
+export SWANLAB_MODEL="local"
 export SWANLAB_PROJECT="CopyPasteLRM"
 export SWANLAB_TOKEN="eD9F8nh3oF5zAeyopbN8f"
 export SWANLAB_LARK_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/880e2480-71ed-4f29-8495-b7fa75c8cbd7"
@@ -122,7 +123,7 @@ export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
 export REWARD_ANSWER=0.8
 export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
-export SWANLAB_EXP_NAME="[just 1 stage]-${EXP_NAME}"
+export SWANLAB_EXP_NAME="[just_1_stage]-${EXP_NAME}"
 export MAX_STEPS=-1
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型

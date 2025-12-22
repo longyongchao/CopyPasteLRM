@@ -21,6 +21,7 @@ required_vars=(
     NUM_TRAIN_EPOCHS
     MAX_STEPS
     RLHF_DATASET
+    SWANLAB_MODEL
 )
 
 for v in "${required_vars[@]}"; do
@@ -75,7 +76,7 @@ swift rlhf \
     --swanlab_exp_name ${SWANLAB_EXP_NAME} \
     --swanlab_lark_webhook_url ${SWANLAB_LARK_WEBHOOK_URL} \
     --swanlab_lark_secret ${SWANLAB_LARK_SECRET} \
-    --swanlab_mode cloud \
+    --swanlab_mode ${SWANLAB_MODEL} \
     --beta 0.1 \
     --dynamic_sample true \
     --epsilon_high 0.25 \
