@@ -14,7 +14,7 @@ from copypastelrm.prompt.passAtKEqual0 import system_prompt, user_prompt_templat
 
 MODEL_NAME: Literal['Qwen3-4B-Instruct-2507', 'Qwen3-8B', 'Qwen2.5-3B-Instruct', 'Qwen2.5-7B-Instruct'] = 'Qwen3-4B-Instruct-2507'
 RESAMPLES: Literal[2000, 5000, 10000] = 2000
-SYSTEM_PROMPT: Literal['deepseek', 'copypaste'] = 'copypaste'
+SYSTEM_PROMPT: Literal['deepseek', 'copypaste'] = 'deepseek'
 
 #############################
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
             )
             count += 1
 
-        dataset_count += f"_{dataset_name}_{count}"
+        dataset_count += f"_{dataset_name}-{count}"
 
         print("sfs before count:", sfs_before_count)
         print("sfs after count:", sfs_after_count)
@@ -103,4 +103,4 @@ if __name__ == "__main__":
     random.seed(42)
     random.shuffle(possible_passAtKEqual0_subset)
 
-    save_jsonl(possible_passAtKEqual0_subset, f"{folder_path}possible_pass@K=0_subset_{MODEL_NAME}_{RESAMPLES}_{SYSTEM_PROMPT}_{dataset_count}.jsonl")
+    save_jsonl(possible_passAtKEqual0_subset, f"data/possiblePassAtKEqual0Subset/{MODEL_NAME}_{RESAMPLES}_{SYSTEM_PROMPT}{dataset_count}.jsonl")

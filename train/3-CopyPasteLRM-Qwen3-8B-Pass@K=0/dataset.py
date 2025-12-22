@@ -27,8 +27,20 @@ class CopyPasteQAPreprocessor(ResponsePreprocessor):
 
 register_dataset(
     DatasetMeta(
-        dataset_path="../../passAtK0_data.jsonl",
-        dataset_name="copypaste_qa",
+        dataset_path="../../data/possiblePassAtKEqual0Subset/Qwen3-4B-Instruct-2507_2000_copypaste_hotpotqa-171_multirc-300_popqa-58_musiqua-105_2wiki-123.jsonl",
+        dataset_name="Qwen3-4B-I_2000_copypaste",
+        preprocess_func=CopyPasteQAPreprocessor(
+            columns={
+                "solution": "solution",
+            }
+        ),
+    )
+)
+
+register_dataset(
+    DatasetMeta(
+        dataset_path="../../data/possiblePassAtKEqual0Subset/Qwen3-4B-Instruct-2507_2000_deepseek_hotpotqa-171_multirc-300_popqa-58_musiqua-105_2wiki-123.jsonl",
+        dataset_name="Qwen3-4B-I_2000_deepseek",
         preprocess_func=CopyPasteQAPreprocessor(
             columns={
                 "solution": "solution",
@@ -39,7 +51,7 @@ register_dataset(
 
 if __name__ == "__main__":
     dataset = load_dataset(
-        ["copypaste_qa"], remove_unused_columns=False, download_mode="force_redownload"
+        ["Qwen3-4B-I_2000_copypaste"], remove_unused_columns=False, download_mode="force_redownload"
     )
 
     print(f"dataset: {dataset}")
