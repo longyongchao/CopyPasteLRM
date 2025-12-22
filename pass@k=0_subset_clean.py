@@ -50,7 +50,7 @@ paths = {
     # "hotpotqa": "/data/lyc/CopyPasteLRM/pass_at_42/Qwen3-4B-Instruct-2507/resamples_2000/hotpotqa-resamples_2000-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766339723.jsonl",
     # "2wiki":    "/data/lyc/CopyPasteLRM/pass_at_42/Qwen3-4B-Instruct-2507/resamples_2000/2wikimultihopqa-resamples_2000-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766336566.jsonl",
     # "popqa":    "/data/lyc/CopyPasteLRM/pass_at_42/Qwen3-4B-Instruct-2507/resamples_2000/popqa-resamples_2000-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766320498.jsonl",
-    "multirc":  "/data/lyc/CopyPasteLRM/pass_at_42/Qwen3-4B-Instruct-2507/resamples_2000/multirc-resamples_2000-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766319454.jsonl",
+    # "multirc":  "/data/lyc/CopyPasteLRM/pass_at_42/Qwen3-4B-Instruct-2507/resamples_2000/multirc-resamples_2000-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766319454.jsonl",
     "musiqua":  "/data/lyc/CopyPasteLRM/pass_at_42/Qwen3-4B-Instruct-2507/resamples_2000/musique-resamples_2000-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766337255.jsonl",
     # "qasper":   "",
 }
