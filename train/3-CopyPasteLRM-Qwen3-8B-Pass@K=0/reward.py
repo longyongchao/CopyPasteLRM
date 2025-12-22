@@ -319,7 +319,7 @@ class CopyReward(ORM):
         return rewards
 
 
-class AnswerLooseReward(ORM):
+class AnswerF1Reward(ORM):
     """计算模型生成回答的奖励分值。
     
     该类通过验证回答的结构格式、F1 分数来评估生成内容的质量。
@@ -357,8 +357,44 @@ class AnswerLooseReward(ORM):
 
         return rewards
 
+class AnswerEMReward(ORM):
+    """计算模型生成回答的奖励分值。
+    
+    严格模式，计算EM，如果EM不匹配，则降级计算HIT，并且按照答案长度进行惩罚。
 
-class AnswerStrictReward(ORM):
+    如果EM==True，则奖励为1.0
+
+    Attributes:
+        format_validator: 用于校验生成内容是否符合预定义结构的验证器。
+    """
+
+    def __init__(self):
+        self.format_validator = FormatValidator()
+
+    def __call__(
+        self, completions: List[str], solution: List[dict], **kwargs
+    ) -> List[float]:
+        rewards = []
+
+        for completion, sol in zip(completions, solution):
+            is_all_valid, _, answer_content = self.format_validator.validate_structure(completion)
+            if not is_all_valid:
+                rewards.append(0.0)
+                continue
+
+            gold_answers = sol["answers"]
+
+            em = exact_match_score(answer_content, gold_answers)
+            if em:
+                reward = 1.0
+            else:
+                reward = 0
+
+            rewards.append(reward)
+
+        return rewards
+
+class AnswerHitReward(ORM):
     """计算模型生成回答的奖励分值。
     
     严格模式，计算EM，如果EM不匹配，则降级计算HIT，并且按照答案长度进行惩罚。
@@ -386,15 +422,11 @@ class AnswerStrictReward(ORM):
 
             gold_answers = sol["answers"]
 
-            em = exact_match_score(answer_content, gold_answers)
             hit_gold = hit_answer(answer_content, gold_answers)
-            if em:
-                reward = 1.0
-            elif hit_gold:
+            if hit_gold:
                 reward = len(hit_gold) / len(answer_content)
             else:
                 reward = 0
-
 
             rewards.append(reward)
 
@@ -403,6 +435,10 @@ class AnswerStrictReward(ORM):
 
 orms["cplrm_format"] = FormatReward
 orms["cplrm_length"] = LengthtReward
+
 orms["cplrm_copy"] = CopyReward
-orms["cplrm_loose_answer"] = AnswerLooseReward
-orms["cplrm_strict_answer"] = AnswerStrictReward
+
+orms["cplrm_answer_f1"] = AnswerF1Reward
+orms["cplrm_answer_em"] = AnswerEMReward
+
+orms["cplrm_answer_hit"] = AnswerHitReward
