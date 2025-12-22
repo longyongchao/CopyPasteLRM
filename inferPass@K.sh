@@ -19,7 +19,7 @@ DATASETS=(
 # 模型和服务器配置
 # MODEL_NAME="Qwen3-8B"
 # MODEL_NAME="Qwen2.5-3B-Instruct"
-MODEL_NAME="Qwen2.5-7B-Instruct"
+MODEL_NAME="Qwen3-4B-Instruct-2507"
 SERVER_URL="http://localhost:8124/v1"
 API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
@@ -29,7 +29,7 @@ PRIOR_THRESHOLD=32
 TEMPERATURE=1.0                   # 模型生成温度
 TOP_P=0.95                        # 模型生成 top-p
 NUM_THREADS=128                   # 并行推理的线程数量
-MAX_SAMPLES=2000                  # 最大处理样本数 (设置为 None 则处理全部)
+MAX_SAMPLES=10000                  # 最大处理样本数 (设置为 None 则处理全部)
 
 # 检查 Python 文件是否存在
 if [ ! -f "copypastelrm/inference/inferPass@K.py" ]; then

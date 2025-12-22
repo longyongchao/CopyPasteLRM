@@ -309,7 +309,7 @@ def main():
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
 
     # 修改输出文件名，增加 k 值标识，后缀改为 .jsonl
-    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{args.dataset}-resamples_{args.max_samples}-tpr_{args.temperature}-tpp_{args.top_p}-{model_name_clean}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
+    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
 
     assert args.prior_threshold < args.k, "错误提示阈值不能大于最大采样次数"
 
