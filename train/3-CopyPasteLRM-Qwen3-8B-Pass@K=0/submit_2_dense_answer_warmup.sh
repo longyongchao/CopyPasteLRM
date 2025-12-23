@@ -124,7 +124,7 @@ export REWARD_LENGTH=0.1
 export REWARD_ANSWER=0.8
 export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
-export MAX_STEPS=-1
+export MAX_STEPS=300
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型
 export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}

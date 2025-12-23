@@ -118,11 +118,12 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer_f1"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY}"
+export REWARD_COPY=0.4
+export REWARD_ANSWER=0.4
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
 export MAX_STEPS=300
 
