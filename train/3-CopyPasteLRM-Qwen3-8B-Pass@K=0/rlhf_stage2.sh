@@ -47,7 +47,7 @@ swift rlhf \
     --download_mode force_redownload \
     --per_device_train_batch_size ${BATCH_SIZE} \
     --per_device_eval_batch_size ${BATCH_SIZE} \
-    --learning_rate 5e-7 \
+    --learning_rate 1e-6 \
     --save_total_limit 5 \
     --logging_steps 1 \
     --output_dir ${STAGE2_OUTPUT_DIR} \

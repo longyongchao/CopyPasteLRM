@@ -35,11 +35,11 @@ export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
 export BATCH_SIZE=9
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
-export RLHF_DATASET="Qwen3-4B-I_2000_deepseek"
+export RLHF_DATASET="Qwen3-4B-I_2000_copypaste"
 
 # 生成时间戳和实验名称
 timestamp=$(date +%Y%m%d%H%M%S)
-EXP_NAME=${MODEL_NAME}-dense_answer_warmup-${timestamp}
+EXP_NAME=${MODEL_NAME}-dense_copypaste_warmup-${timestamp}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
@@ -118,11 +118,12 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_f1"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer_f1"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_ANSWER=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
+export REWARD_COPY=0.4
+export REWARD_ANSWER=0.4
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
 export MAX_STEPS=-1
 
@@ -158,11 +159,12 @@ echo "-------------------------------------"
 echo "========== Starting Stage 2 =========="
 
 # Stage2 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_em"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer_em"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_ANSWER=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
+export REWARD_COPY=0.1
+export REWARD_ANSWER=0.7
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[stage2]-${EXP_NAME}"
 export MAX_STEPS=-1
 
