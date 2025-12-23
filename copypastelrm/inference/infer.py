@@ -20,7 +20,6 @@ python inference/infer.py --server-url https://api.siliconflow.cn/v1 --model-nam
 import argparse
 import json
 import os
-import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -30,7 +29,7 @@ import random
 from openai import OpenAI
 from tqdm import tqdm
 
-from copypastelrm.inference.prompt import create_prompt
+from copypastelrm.prompt.prompt import create_prompt
 from copypastelrm.datasets.HotpotQA import HotpotQA
 from copypastelrm.datasets.PubMedQA import PubMedQA
 from copypastelrm.datasets.MultiRC import MultiRC
@@ -48,10 +47,10 @@ from copypastelrm.utils.git import get_git_commit_id
 def call_model(
     client: OpenAI,
     model_name: str,
-    prompt: str,
+    user_prompt: str,
+    system_prompt: str = 'You are a helpful assistant.',
     max_tokens: int = 4096,
     temperature: float = 0.7,
-    top_p=0.95,
     enable_thinking: bool = False,
 ) -> str:
     """
@@ -69,10 +68,12 @@ def call_model(
     try:
         response = client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
             max_tokens=max_tokens,
             temperature=temperature,
-            top_p=top_p,
             extra_body={
                 "chat_template_kwargs": {"enable_thinking": enable_thinking},
             },
@@ -89,7 +90,6 @@ def process_single_sample(
     model_name: str,
     prompt_type: str,
     temperature: float,
-    top_p: float,
     enable_thinking: bool = False,
 ) -> Tuple[str, str]:
     """
@@ -107,15 +107,16 @@ def process_single_sample(
 
     try:
         # 格式化上下文和创建提示
-        prompt = create_prompt(sample["query"], sample["context"], prompt_type)
+        system_prompt, user_prompt = create_prompt(sample["query"], sample["context"], prompt_type)
 
         # 调用模型
         predict = call_model(
             client,
             model_name,
-            prompt,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_tokens=4096,
             temperature=temperature,
-            top_p=top_p,
             enable_thinking=enable_thinking,
         )
 
@@ -153,15 +154,14 @@ def run_inference(
     server_url: str,
     model_name: str,
     output_file: str,
-    max_samples: int = None,
+    max_samples: int = -1,
     num_threads: int = 4,
-    prompt_type: str = "reasoning with copy-paste",
+    prompt_type: str = "cot",
     dataset_name: str = "hotpotqa",
     api_key: str = "sk-wingchiu",
     temperature: float = 0.7,
-    top_p: float = 0.95,
     enable_thinking: bool = False,
-    enable_trainset: bool = False,
+    split: bool = 'train',
 ):
     """
     运行完整的推理流程（多线程版本）
@@ -178,23 +178,23 @@ def run_inference(
 
     # 加载数据集
     if dataset_name == "hotpotqa":
-        dataset_loader = HotpotQA(max_samples=max_samples, split='train' if enable_trainset else 'validation')
+        dataset_loader = HotpotQA(max_samples=max_samples, split='train' if split == 'train' else 'validation')
     elif dataset_name == "multirc":
-        dataset_loader = MultiRC(max_samples=max_samples, split='dev' if enable_trainset else 'train')
+        dataset_loader = MultiRC(max_samples=max_samples, split='dev' if split == 'train' else 'train')
     elif dataset_name == "musique":
-        dataset_loader = MuSiQue(max_samples=max_samples, split='train' if enable_trainset else 'validation') 
+        dataset_loader = MuSiQue(max_samples=max_samples, split='train' if split == 'train' else 'validation') 
     elif dataset_name == "2wikimultihopqa":
-        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split='dev' if enable_trainset else 'test')
+        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split='dev') # 2wiki的test没有answer
     elif dataset_name == "popqa":
-        dataset_loader = PopQA(max_samples=max_samples, split='train' if enable_trainset else 'test')
+        dataset_loader = PopQA(max_samples=max_samples, split='train' if split == 'train' else 'test')
     elif dataset_name == "qasper":
-        dataset_loader = Qasper(max_samples=max_samples, split='train' if enable_trainset else 'test')
-    elif dataset_name == "copypaste":
-        dataset_loader = CopyPaste(max_samples=max_samples)
+        dataset_loader = Qasper(max_samples=max_samples, split='train' if split == 'train' else 'test')
     elif dataset_name == "pubmedqa":
-        dataset_loader = PubMedQA(max_samples=max_samples, )
+        dataset_loader = PubMedQA(max_samples=max_samples, dataset_name='pqa_artificial' if split == 'train' else 'pqa_labeled' )
     elif dataset_name == "faitheval":
         dataset_loader = FaithEval(max_samples=max_samples)
+    elif dataset_name == "copypaste":
+        dataset_loader = CopyPaste(max_samples=max_samples, split='train' if split == 'train' else 'test')
     else:
         raise ValueError(f"不支持的数据集: {dataset_name}")
 
@@ -205,7 +205,7 @@ def run_inference(
 
     print(f"使用 {num_threads} 个线程进行并行推理")
 
-    prompt_snapshot = create_prompt("示例问题", "示例上下文", prompt_type)
+    system_prompt_snapshot, user_prompt_snapshot = create_prompt("示例问题", "示例上下文", prompt_type)
     start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
     # 初始化结果存储（线程安全）
@@ -244,7 +244,6 @@ def run_inference(
                 model_name,
                 prompt_type,
                 temperature,
-                top_p,
                 enable_thinking,
             ): sample
             for sample in dataset
@@ -283,11 +282,11 @@ def run_inference(
         "server_url": server_url,
         "model_name": model_name,
         "prompt_type": prompt_type,
-        "prompt_snapshot": prompt_snapshot,
+        "system_prompt_snapshot": system_prompt_snapshot,
+        "user_prompt_snapshot": user_prompt_snapshot,
         "start_time": start_time,
         "end_time": end_time,
         "temperature": temperature,
-        "top_p": top_p,
         "dataset": dataset_name,
         "max_samples": max_samples,
         "num_threads": num_threads,
@@ -322,7 +321,7 @@ def main():
         help="模型名称",
     )
     parser.add_argument(
-        "--max-samples", type=int, default=None, help="最大处理样本数，用于测试"
+        "--max-samples", type=int, default=-1, help="最大处理样本数，用于测试"
     )
     parser.add_argument(
         "--num-threads", type=int, default=4, help="并行推理的线程数量，默认为 4"
@@ -331,7 +330,7 @@ def main():
         "--prompt-type",
         type=str,
         default="direct",
-        choices=["attributed", "direct", "reasoning", "reasoning_with_copypaste", "reasoning_with_copypaste_old"],
+        choices=["direct_inference", "cot", "rag", "ircot", "deepseek", "copypaste"],
         help="提示模板选择",
     )
     parser.add_argument(
@@ -358,13 +357,12 @@ def main():
         help="API Key，用于访问 第三方 服务",
     )
     parser.add_argument("--temperature", type=float, default=0.7, help="模型生成温度")
-    parser.add_argument("--top-p", type=float, default=0.95, help="模型生成 top-p 采样")
     parser.add_argument("--seed", type=int, default=42, help="模型生成 top-p 采样")
     parser.add_argument(
         "--enable-thinking", action="store_true", help="是否启用思考"
     )
     parser.add_argument(
-        "--enable-trainset", action="store_true", help="是否推理训练集"
+        "--split", type=str, default="test", help="是否推理训练集"
     )
 
     args = parser.parse_args()
@@ -373,7 +371,7 @@ def main():
 
     timestamp = int(time.time())
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    output_file = f"results/infer/trainset_{args.enable_trainset}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}-tpp_{args.top_p}/{model_name_clean}/{args.dataset}/enable_thinking_{args.enable_thinking}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
+    output_file = f"results/infer/{args.split}/{model_name_clean}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}/{args.dataset}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     run_inference(
@@ -386,9 +384,8 @@ def main():
         dataset_name=args.dataset,
         api_key=args.api_key,
         temperature=args.temperature,
-        top_p=args.top_p,
         enable_thinking=args.enable_thinking,
-        enable_trainset=args.enable_trainset,
+        split=args.split,
     )
 
 

@@ -8,7 +8,7 @@
 # 定义需要遍历执行的数据集名称列表
 # 确保这些名称与 inferPass@K.py 中支持的 --dataset 参数值一致
 DATASETS=(
-    "multirc"
+    # "multirc"
     "popqa" 
     "qasper"
     "2wikimultihopqa"

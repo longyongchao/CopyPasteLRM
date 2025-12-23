@@ -34,7 +34,7 @@ class CopyPaste(BaseDatasetLoader):
             self.multirc = MultiRC(max_samples=max_samples, split='dev', reload=reload)     
             self.popqa = PopQA(max_samples=max_samples, split='test', reload=reload)
             self.pubmedqa = PubMedQA(max_samples=max_samples, dataset_name='pqa_labeled', reload=reload)
-            self.twoWikiqa = TwoWikiMultihopQA(max_samples=max_samples, split='test', reload=reload)
+            self.twoWikiqa = TwoWikiMultihopQA(max_samples=max_samples, split='dev', reload=reload)
             self.musique = MuSiQue(max_samples=max_samples, split='validation', reload=reload)
             
 
@@ -46,7 +46,7 @@ class CopyPaste(BaseDatasetLoader):
             offline=True,
             reload=reload,
             format=False,
-            max_samples=-1
+            max_samples=max_samples
         )
     
     def download_dataset(self):

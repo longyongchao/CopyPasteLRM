@@ -23,6 +23,7 @@ class BaseDatasetLoader(ABC):
         format: bool = True,
         max_samples: int = -1,
         filter_empty_answer: bool = True,
+        shuffle: bool = True
     ):
         """
         初始化数据集加载器
@@ -104,6 +105,7 @@ class BaseDatasetLoader(ABC):
                 formatted_dataset_list = json.load(f)
                 if self.filter_empty_answer:
                     formatted_dataset_list = self.get_non_empty_answer(formatted_dataset_list)
+                    random.shuffle(formatted_dataset_list)
                 self.dataset_list = formatted_dataset_list
                 dataset_dict = {}
                 for sample in formatted_dataset_list:
@@ -139,6 +141,7 @@ class BaseDatasetLoader(ABC):
 
         if self.filter_empty_answer:
             formatted_dataset_list = self.get_non_empty_answer(formatted_dataset_list)
+            random.shuffle(formatted_dataset_list)
             formatted_dataset_dict = {}
             for sample in formatted_dataset_list:
                 formatted_dataset_dict[sample["id"]] = sample
@@ -147,7 +150,7 @@ class BaseDatasetLoader(ABC):
         return formatted_dataset_dict
     
     def get_non_empty_answer(self, data: list) -> list:
-        return [sample for sample in data if len(sample["answer"]) > 0]
+        return [sample for sample in data if len(sample["answer"]) > 0 and sample["answer"][0].strip() != ""]
 
     def format_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
