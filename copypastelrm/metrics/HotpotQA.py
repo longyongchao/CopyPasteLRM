@@ -1,6 +1,7 @@
 import re
 import string
 from collections import Counter
+from typing import List, Optional
 
 
 def normalize_answer(s):
@@ -121,6 +122,8 @@ def hit_score(prediction, gold_answers):
     Returns:
         bool: 如果预测答案在标准答案中返回 True，否则返回 False
     """
+    if not prediction:
+        return False
     for gold_answer in gold_answers:
         if normalize_answer(gold_answer) in normalize_answer(prediction):
             return True
@@ -194,20 +197,25 @@ def update_answer(metrics: dict, prediction: str, gold_answers: list[str]) -> tu
     return float(em), best_precision, best_recall
 
 
-def update_sp(metrics, predict_sfs, gold_sfs):
+def update_sp(predict_sfs: List[str], gold_sfs: List[str], metrics: Optional[dict] = None):
     """
     更新支持事实相关的评估指标
 
-    支持事实是模型用来回答问题的依据，通常表示为 [title, sentence_id] 的元组
+    支持事实是模型用来回答问题的依据
 
     Args:
+        predict_sfs (List[str]): 模型预测的支持事实列表
+        gold_sfs (List[str]): 标准支持事实列表
         metrics (dict): 存储累积指标的字典
-        prediction (list): 模型预测的支持事实列表
-        gold (list): 标准支持事实列表
 
     Returns:
         tuple: (em, prec, recall) - 支持事实的精确匹配、精确率、召回率
     """
+    if predict_sfs is None or len(predict_sfs) == 0 or predict_sfs[0].strip() == "":
+        return 0.0, 0.0, 0.0, 0.0
+    if gold_sfs is None or len(gold_sfs) == 0 or gold_sfs[0].strip() == "":
+        return 0.0, 0.0, 0.0, 0.0
+
     # 将列表转换为集合以便比较，使用 tuple 确保可哈希
     predict_sfs = [sf.lower().strip() for sf in predict_sfs]
     gold_sfs = [sf.lower().strip() for sf in gold_sfs]
@@ -240,9 +248,24 @@ def update_sp(metrics, predict_sfs, gold_sfs):
     em = 1.0 if fp + fn == 0 else 0.0
 
     # 累加到总指标中
-    metrics["sp_em"] += em
-    metrics["sp_f1"] += f1
-    metrics["sp_prec"] += prec
-    metrics["sp_recall"] += recall
+    if metrics is not None:
+        metrics["sp_em"] += em
+        metrics["sp_f1"] += f1
+        metrics["sp_prec"] += prec
+        metrics["sp_recall"] += recall
 
-    return em, prec, recall, f1
+    return em, f1, prec, recall
+
+
+def compute_answer_em_hit_f1(predict_answer: str, gold_answers: List[str]) -> tuple[float, float, float]:
+    if not predict_answer:
+        return 0.0, 0.0, 0.0
+    hit = hit_score(predict_answer, gold_answers)
+    em = exact_match_score(predict_answer, gold_answers)
+
+    f1 = 0
+    for gold_ans in gold_answers:
+        current_f1, _, _ = f1_score(predict_answer, gold_ans)
+        f1 = max(f1, current_f1)
+
+    return em, hit, f1

@@ -14,11 +14,21 @@ SYSTEM_PROMPT = {
     "deepseek": """
 A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|> <|answer|> answer here </|answer|>.
 
+## IMPORTANT:
+- The content inside <|answer|> must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words in <|answer|>.
+- The <|answer|> tag should contain ONLY the answer itself.
+
 ## Example of Desired Style
 <|think|>After analyzing the test results, I observe that the patient’s white blood cell count has increased by 30% following antibiotic therapy—this points to progress in controlling the infection. That said, their C-reactive protein level has only dropped by 10%, so the inflammatory response may not have eased notably.</|think|>
 <|answer|>inflammation lingers</|answer|>
 """.strip(),
     "copypaste": """A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|><|answer|> answer here </|answer|>.
+
+## IMPORTANT:
+- The content inside <|answer|> must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words in <|answer|>.
+- The <|answer|> tag should contain ONLY the answer itself.
 
 ## Reasoning Guidelines (The <|think|> block)
 1. **Evidence Extraction:** You must support your reasoning by extracting **exact text spans** from the context.

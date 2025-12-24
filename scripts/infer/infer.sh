@@ -30,8 +30,8 @@ repeat_times=1
 
 server_url="http://localhost:8124/v1"
 # server_url="https://api.siliconflow.cn/v1"
-num_threads=128
-model_name="Qwen3-4B-Instruct-2507"
+num_threads=16
+# model_name="Qwen3-4B-Instruct-2507"
 model_name="Qwen3-4B"
 max_samples=-1
 split="test"
