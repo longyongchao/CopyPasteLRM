@@ -20,7 +20,7 @@ from copypastelrm.datasets.FaithEval import FaithEval
 from copypastelrm.datasets.Qasper import Qasper
 from copypastelrm.datasets.CopyPaste import CopyPaste
 
-from copypastelrm.metrics.HotpotQA import exact_match_score
+from copypastelrm.metrics.HotpotQA import exact_match_score, compute_answer_em_hit_f1
 from copypastelrm.metrics.utils import extract_answer_and_facts
 
 
@@ -35,12 +35,9 @@ def check_correctness(sample: Dict[str, Any], prediction: str) -> bool:
     Returns:
         bool: 是否正确
     """
-    # TODO: 在这里实现你的判断逻辑
-    # 例如：return prediction.strip() == sample["answer"]
-    # 目前默认返回 False，以便让采样循环继续直到达到最大 K 值（如果用于测试覆盖率）
-    # 或者如果你的逻辑实现了，一旦返回 True，采样就会对该样本停止。
+    em, hit, f1 = compute_answer_em_hit_f1(prediction, sample["answer"])
 
-    return exact_match_score(prediction, sample["answer"])
+    return f1 > 0
 
 
 def call_model(
@@ -57,7 +54,6 @@ def call_model(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
-            top_p=top_p,
             extra_body={
                 "chat_template_kwargs": {"enable_thinking": enable_thinking},
             },

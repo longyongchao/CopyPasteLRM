@@ -14,7 +14,7 @@ QUESTION: $question
 You can consider below supporting facts from the context as evidence for your answer:
 $evidence
 
-Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
+Answer the above question directly without additional explanation in the exact format 'Answer: xyz'.""".strip(),
     "pass@K_with_wrong_tips": """User provides the following CONTEXT:
 
 $context
@@ -27,7 +27,7 @@ $evidence
 
 Note that these answers is incorrect: $prior_answer
 
-Answer the above question in the exact format 'Answer: <Your final answer without any additional explanation>'.""".strip(),
+Answer the above question directly without additional explanation in the exact format 'Answer: xyz'.""".strip(),
     # 适用于推理模型的CoT
     "direct": """User provides the following CONTEXT:
 
