@@ -1,11 +1,31 @@
 from typing import List
-from copypastelrm.utils.json_tools import read_json
+from copypastelrm.utils.json_tools import read_json, read_jsonl_to_list
 import argparse
-from tqdm import tqdm
+# from tqdm import tqdm
 
 import numpy as np
 from copypastelrm.metrics.utils import extract_answer_and_facts, extract_answer_and_facts_old
 from copypastelrm.metrics.HotpotQA import compute_answer_em_hit_f1, update_sp
+
+def get_pass_at_k_equal_0_subset_ids(pass_at_k_equal_0_subset_ids_paths: List[str]) -> List[int]:
+    pass_at_k_equal_0_subset_ids_paths = [
+        "key_data/pass_at_k_equal_0_subset/faitheval-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766461616pass_at_0_subset_ids.jsonl",
+        "key_data/pass_at_k_equal_0_subset/hotpotqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766457812pass_at_0_subset_ids.jsonl",
+        "key_data/pass_at_k_equal_0_subset/multirc-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766399481pass_at_0_subset_ids.jsonl",
+        "key_data/pass_at_k_equal_0_subset/musique-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766453865pass_at_0_subset_ids.jsonl",
+        "key_data/pass_at_k_equal_0_subset/popqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766406374pass_at_0_subset_ids.jsonl",
+        "key_data/pass_at_k_equal_0_subset/pubmedqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766460369pass_at_0_subset_ids.jsonl",
+        "key_data/pass_at_k_equal_0_subset/qasper-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766428629pass_at_0_subset_ids.jsonl",
+    ]
+
+    subset_ids = set()
+
+    for path in pass_at_k_equal_0_subset_ids_paths:
+        ids = read_jsonl_to_list(path)
+        ids = [str(id) for id in ids]
+        subset_ids.update(ids)
+    
+    return list(subset_ids)
 
 def main(
     path: str,
@@ -36,16 +56,18 @@ def main(
     匹配不成功的使用None
     """
 
+    pass_at_k_equal_0_subset_ids = get_pass_at_k_equal_0_subset_ids([])
+
     distribution = {}
 
-    for sample_id, item in tqdm(data.items()):
+    for sample_id, item in data.items():
         dataset = item['dataset']
         predict = item['predict']
         gold_answers: List[str] = item['answer']
         gold_facts = item['sfs']
 
         if predict is None:
-            print(f'predict is None, dataset: {dataset}, sample_id: {sample_id}')
+            # print(f'predict is None, dataset: {dataset}, sample_id: {sample_id}')
             continue
 
         if dataset not in distribution:
@@ -55,6 +77,11 @@ def main(
                 'answer_f1': [],
                 'fact_f1': [],
                 'fact_em': [],
+                'passAtkEqual0_answer_em': [],
+                'passAtkEqual0_answer_hit': [],
+                'passAtkEqual0_answer_f1': [],
+                'passAtkEqual0_fact_f1': [],
+                'passAtkEqual0_fact_em': [],
                 'answer_predict_length': [],
                 'answer_gold_length': [],
                 'fact_predict_length': [],
@@ -83,6 +110,14 @@ def main(
         distribution[dataset]['answer_f1'].append(answer_f1)
         distribution[dataset]['fact_f1'].append(fact_f1)
         distribution[dataset]['fact_em'].append(fact_em)
+
+        if str(sample_id) in pass_at_k_equal_0_subset_ids:
+            distribution[dataset]['passAtkEqual0_answer_em'].append(answer_em)
+            distribution[dataset]['passAtkEqual0_answer_hit'].append(answer_hit)
+            distribution[dataset]['passAtkEqual0_answer_f1'].append(answer_f1)
+            distribution[dataset]['passAtkEqual0_fact_f1'].append(fact_f1)
+            distribution[dataset]['passAtkEqual0_fact_em'].append(fact_em)
+
         distribution[dataset]['answer_predict_length'].append(answer_predict_length)
         distribution[dataset]['answer_gold_length'].append(answer_gold_length)
         distribution[dataset]['fact_predict_length'].append(fact_predict_length)
@@ -91,18 +126,22 @@ def main(
         distribution[dataset]['answer_parser_success_rate'].append(answer_parser_success_rate)
         distribution[dataset]['fact_parser_success_rate'].append(fact_parser_success_rate)
 
-    # print(distribution)
     metrics = {}
     for dataset, values in distribution.items():
-        # 断言所有的value的长度均一致
-        assert len(set([ len(value) for value in values.values() ])) == 1
+
         metrics[dataset] = {
             'total': len(values['answer_em']),
+            'passAtkEqual0_total': len(values['passAtkEqual0_answer_em']),
             'ans_em': np.mean(values['answer_em']),
+            'passAtkEqual0_ans_em': np.mean(values['passAtkEqual0_answer_em'] if len(values['passAtkEqual0_answer_em']) > 0 else [0]),
             'ans_hit': np.mean(values['answer_hit']),
+            'passAtkEqual0_ans_hit': np.mean(values['passAtkEqual0_answer_hit'] if len(values['passAtkEqual0_answer_hit']) > 0 else [0]),
             'ans_f1': np.mean(values['answer_f1']),
+            'passAtkEqual0_ans_f1': np.mean(values['passAtkEqual0_answer_f1'] if len(values['passAtkEqual0_answer_f1']) > 0 else [0]),
             'fact_f1': np.mean(values['fact_f1']),
+            'passAtkEqual0_fact_f1': np.mean(values['passAtkEqual0_fact_f1'] if len(values['passAtkEqual0_fact_f1']) > 0 else [0]),
             'fact_em': np.mean(values['fact_em']),
+            'passAtkEqual0_fact_em': np.mean(values['passAtkEqual0_fact_em'] if len(values['passAtkEqual0_fact_em']) > 0 else [0]),
             'ans_pred_len': np.mean(values['answer_predict_length']),
             'ans_gold_len': np.mean(values['answer_gold_length']),
             'fact_pred_len': np.mean(values['fact_predict_length']),
@@ -118,17 +157,18 @@ def main(
     metric_name = []
     metric_value = []
     for dataset, metric in metrics.items():
+        # print(dataset)
         metric_name.extend(metric.keys())
         metric_value.extend(metric.values())
     
-    print(f'[prompt_type: {prompt_type}]\n[model_name: {model_name}]\n\n')
+    # print(f'[prompt_type: {prompt_type}]\n[model_name: {model_name}]\n\n')
 
-    print(",".join(metric_name))
-    print('\n')
+    # print(",".join(metric_name))
+    # print('\n')
     metric_value = [str(value) for value in metric_value]
     print(",".join(metric_value))
 
-    print('\n\n\n')
+    # print('\n\n\n')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -136,6 +176,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print('路径：', args.path)
+    # print('路径：', args.path)
 
     main(args.path)
