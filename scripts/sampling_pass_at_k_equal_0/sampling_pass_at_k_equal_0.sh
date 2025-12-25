@@ -7,10 +7,9 @@ required_vars=(
     VLLM_PORT
     VLLM_MAX_S
     VLLM_SERVED_MODEL_NAME
-    VLLM_TEMPERATURE
+    PASS_TEMPERATURE
     DATASET_MAX_SAMPLES
     DATASET_SPLIT
-    DATASET_NAME
 )
 
 for v in "${required_vars[@]}"; do
@@ -22,13 +21,13 @@ done
 
 SERVER_URL="http://localhost:${VLLM_PORT}/v1"
 
-for DATASET_NAME in "${target_dataset[@]}"; do
+for dataset_name in "${target_dataset[@]}"; do
     
     # 执行 Python 脚本，使用当前循环中的 $DATASET_NAME 变量
     python copypastelrm/inference/inferPass@K.py \
         --server-url "${SERVER_URL}" \
         --model-name "${VLLM_SERVED_MODEL_NAME}" \
-        --dataset "${DATASET_NAME}" \
+        --dataset "${dataset_name}" \
         --split "${DATASET_SPLIT}" \
         --num-threads "${VLLM_MAX_S}" \
         --max-samples "${DATASET_MAX_SAMPLES}" \

@@ -11,19 +11,12 @@ $context
 
 QUESTION: $question
 
-You can consider below supporting facts from the context as evidence for your answer:
-$evidence
-
 Answer the above question directly without additional explanation in the exact format 'Answer: xyz'.""".strip(),
     "pass@K_with_wrong_tips": """User provides the following CONTEXT:
 
 $context
 
 QUESTION: $question
-
-You can consider below supporting facts from the context as evidence for your answer:
-$evidence
-
 
 Note that these answers is incorrect: $prior_answer
 
@@ -97,7 +90,6 @@ def create_prompt(
             full_prompt = template.substitute(
                 context=context,
                 question=question,
-                evidence=evidence,
                 prior_answer=prior_answer,
             )
         else:
@@ -106,7 +98,6 @@ def create_prompt(
             full_prompt = template.substitute(
                 context=context,
                 question=question,
-                evidence=evidence,
             )
     else: 
         # 使用 substitute 替换模板中的占位符

@@ -23,33 +23,29 @@ start_time=$(date +%s)
 
 
 # 0. 设置变量
-# VLLM_CONDA_ENV="vllm"
-VLLM_CONDA_ENV="ms-swift"
-# VLLM_DEVICES="0,1,2,3"
-VLLM_DEVICES="0,1"
-VLLM_SERVED_MODEL_NAME="Qwen3-4B-Instruct-2507" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="Qwen/Qwen3-4B-Instruct-2507" # vLLM服务模型路径
+VLLM_CONDA_ENV="vllm"
+# VLLM_CONDA_ENV="ms-swift"
+VLLM_DEVICES="0,1,2,3"
+# VLLM_DEVICES="0,1"
+VLLM_SERVED_MODEL_NAME="3_dense_copy_f1_warmup_qwen_3_4b_instruct_stage1" # vLLM服务模型名称
+VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/Qwen/Qwen3-4B-Instruct-2507-dense_copypaste_warmup-20251223093002/stage1/last" # vLLM服务模型路径
 VLLM_MAX_L=32768
-VLLM_MAX_S=16
+VLLM_MAX_S=128
 VLLM_PORT=8124
-
-PASS_K_VALUE=128
-PASS_PRIOR_THRESHOLD=120
-PASS_TEMPERATURE=1.0
+VLLM_TEMPERATURE=0.0
 
 # 数据集相关变量
+DATASET_NAME='copypaste'
 DATASET_MAX_SAMPLES=-1
-DATASET_SPLIT="train"
+DATASET_SPLIT="test"
 
-target_datasets=(
-    "hotpotqa"
-    "2wikimultihopqa"
-    "multirc"
-    "popqa" 
-    "musique"
-    # "qasper"
-    # "pubmedqa"
-    # "faitheval"
+prompt_types=(
+    # "direct_inference"
+    # "rag"
+    # "cot"
+    # "ircot"
+    # "deepseek"
+    "copypaste"
 )
 
 # 1. 拉起vLLM服务
@@ -78,7 +74,8 @@ wait_for_vllm $VLLM_PORT
 
 # 3. 启动推理
 
-source scripts/sampling_pass_at_k_equal_0/sampling_pass_at_k_equal_0.sh "${target_datasets[@]}"
+source scripts/infer/infer_test.sh "${prompt_types[@]}"
+
 
 # 4. 杀死vLLM服务
 kill_process_on_port $VLLM_PORT
@@ -88,4 +85,4 @@ kill_processes_on_gpus $VLLM_DEVICES
 end_time=$(date +%s)
 
 # 5. 发送飞书通知，将总耗时，VLLM_SERVED_MODEL_NAME, DATASET_NAME, DATASET_SPLIT, prompt_types的信息囊括
-send_feishu_msg "✅ Pass@K=0 Subset采样完成 \n总耗时: $(($end_time - $start_time)/60)分钟 \n VLLM_SERVED_MODEL_NAME: $VLLM_SERVED_MODEL_NAME \n DATASET_NAME: $DATASET_NAME \n DATASET_SPLIT: $DATASET_SPLIT \n prompt_types: ${prompt_types[@]}"
+send_feishu_msg "✅ 测试集推理完成\n总耗时: $(($end_time - $start_time)/60)分钟\nVLLM_SERVED_MODEL_NAME: $VLLM_SERVED_MODEL_NAME\nDATASET_NAME: $DATASET_NAME\nDATASET_SPLIT: $DATASET_SPLIT \n prompt_types: ${prompt_types[@]}"
