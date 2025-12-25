@@ -9,7 +9,15 @@ SYSTEM_PROMPT = {
     "direct_inference": """Directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.""".strip(),
     "cot": """First, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'.""".strip(),
     # 适用于通用模型
-    "rag": """Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.""".strip(),
+    "rag": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    
+    """.strip(),
     "ircot": """Based on the context, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'.""".strip(),
     "deepseek": """
 A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|> <|answer|> answer here </|answer|>.
