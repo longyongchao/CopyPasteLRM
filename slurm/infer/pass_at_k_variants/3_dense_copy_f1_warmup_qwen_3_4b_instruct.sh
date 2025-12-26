@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=qwen3_rlhf_pipeline
-#SBATCH --output=output.txt
-#SBATCH --error=error.txt
+#SBATCH --job-name=qwen3
+#SBATCH --output=/tmp/output_%j.txt
+#SBATCH --error=/tmp/error_%j.txt
 #SBATCH --partition=gpu-a800
 #SBATCH --nodelist=gpunode3
 #SBATCH --nodes=1
@@ -27,8 +27,8 @@ VLLM_CONDA_ENV="vllm"
 # VLLM_CONDA_ENV="ms-swift"
 VLLM_DEVICES="0,1,2,3"
 # VLLM_DEVICES="0,1"
-VLLM_SERVED_MODEL_NAME="7_dense_copy_f1_answer_f1_warmup_qwen_3_4b_instruct" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/Qwen/Qwen3-4B-Instruct-2507-dense_copypaste_warmup-20251224152332/stage2/checkpoint-250" # vLLM服务模型路径
+VLLM_SERVED_MODEL_NAME="3_dense_copy_f1_warmup_qwen_3_4b_instruct" # vLLM服务模型名称
+VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/Qwen/Qwen3-4B-Instruct-2507-dense_copypaste_warmup-20251223093002/stage2/checkpoint-751" # vLLM服务模型路径
 VLLM_MAX_L=32768
 VLLM_MAX_S=128
 VLLM_PORT=8124
