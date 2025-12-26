@@ -33,6 +33,8 @@ VLLM_MAX_L=32768
 VLLM_MAX_S=16
 VLLM_PORT=8124
 
+# 这里需要 export 变量，或者确保 source 的脚本能访问到。
+# 因为 sampling_pass_at_k_equal_0.sh 是 source 调用的，所以本地变量即可。
 PASS_K_VALUE=128
 PASS_PRIOR_THRESHOLD=120
 PASS_TEMPERATURE=1.0
@@ -41,12 +43,15 @@ PASS_TEMPERATURE=1.0
 DATASET_MAX_SAMPLES=-1
 DATASET_SPLIT="train"
 
+# 格式说明：
+# 1. 纯数据集名: "musique" -> 使用自动生成的路径
+# 2. 指定重启路径: "dataset=/path/to/file.jsonl" -> 使用指定文件断点续传
 target_datasets=(
-    # "hotpotqa"
-    # "2wikimultihopqa"
-    "popqa" 
+    "hotpotqa=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/hotpotqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766626204.jsonl"
+    "2wikimultihopqa=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/2wikimultihopqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766706218.jsonl"
+    "popqa=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/popqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766718146.jsonl" 
     "musique"
-    "multirc"
+    "multirc=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/multirc-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766715492.jsonl"
     # "qasper"
     # "pubmedqa"
     # "faitheval"
@@ -77,7 +82,7 @@ wait_for_vllm $VLLM_PORT
 
 
 # 3. 启动推理
-
+# 将 target_datasets 数组的所有元素传给脚本
 source scripts/sampling_pass_at_k_equal_0/sampling_pass_at_k_equal_0.sh "${target_datasets[@]}"
 
 # 4. 杀死vLLM服务
@@ -87,5 +92,10 @@ kill_processes_on_gpus $VLLM_DEVICES
 # 5. 记录结束时间戳
 end_time=$(date +%s)
 
-# 5. 发送飞书通知，将总耗时，VLLM_SERVED_MODEL_NAME, DATASET_NAME, DATASET_SPLIT, prompt_types的信息囊括
-send_feishu_msg "✅ Pass@K=0 Subset采样完成 \n总耗时: $(($end_time - $start_time)/60)分钟 \n VLLM_SERVED_MODEL_NAME: $VLLM_SERVED_MODEL_NAME \n DATASET_NAME: $DATASET_NAME \n DATASET_SPLIT: $DATASET_SPLIT \n prompt_types: ${prompt_types[@]}"
+# 格式化 target_datasets 以便在通知中显示 (将数组转换为字符串)
+datasets_str="${target_datasets[*]}"
+
+# 5. 发送飞书通知
+# 注意：prompt_types 变量在当前脚本未定义，如果它是上游变量请确保已设置。
+# 这里将 DATASET_NAME 替换为 datasets_str 以展示所有处理的任务。
+send_feishu_msg "✅ Pass@K=${PASS_K_VALUE} Subset采样完成 \n总耗时: $(($end_time - $start_time)/60)分钟 \n Model: $VLLM_SERVED_MODEL_NAME \n Datasets: $datasets_str \n Split: $DATASET_SPLIT"

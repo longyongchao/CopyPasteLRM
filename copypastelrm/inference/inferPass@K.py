@@ -4,7 +4,7 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 from openai import OpenAI
 from tqdm import tqdm
@@ -86,7 +86,7 @@ def process_single_sample_pass_at_k(
 
         # Pass@K 循环
         for attempt_idx in range(1, k + 1):
-            if attempt_idx < prior_threshold:
+            if prior_threshold is None or attempt_idx < prior_threshold:
                 prompt = create_prompt(
                     sample["query"],
                     sample["context"],
@@ -123,7 +123,9 @@ def process_single_sample_pass_at_k(
                     tips_wrong_answer.add(predict_answer)
 
                 if attempt_idx > 32 and is_correct:
-                    print("✅", sample_id, attempt_idx, is_correct)
+                    # 这是一个简单的日志，用于观察长尾采样的效果
+                    # print("✅", sample_id, attempt_idx, is_correct)
+                    pass
 
             # 记录当前采样结果
             record = {
@@ -132,7 +134,7 @@ def process_single_sample_pass_at_k(
                 "predict": predict,
                 "is_correct": is_correct,
                 "tips_wrong_answer": list(tips_wrong_answer),
-                "recieved_tips": attempt_idx > prior_threshold,
+                "recieved_tips": (prior_threshold is not None) and (attempt_idx > prior_threshold),
             }
 
             if not is_correct and attempt_idx == k:
@@ -173,7 +175,6 @@ def run_inference(
     client = OpenAI(base_url=server_url, api_key=api_key)
 
     # 加载数据集
-    # ... (数据集加载逻辑保持不变)
     if dataset_name == "hotpotqa":
         dataset_loader = HotpotQA(max_samples=max_samples, split="train" if split == "train" else "validation")
     elif dataset_name == "multirc":
@@ -186,7 +187,6 @@ def run_inference(
         dataset_loader = Qasper(max_samples=max_samples, split="train" if split == 'train' else 'test')
     elif dataset_name == "2wikimultihopqa":
         dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split="dev" if split == 'train' else 'test')
-
     elif dataset_name == "pubmedqa":
         dataset_loader = PubMedQA(max_samples=max_samples, dataset_name='pqa_artificial' if split == 'train' else 'pqa_labeled')
     elif dataset_name == "faitheval":
@@ -197,6 +197,40 @@ def run_inference(
         raise ValueError(f"不支持的数据集: {dataset_name}")
 
     dataset = dataset_loader.dataset_list
+
+    # --------------------------------------------------------------------------
+    # 断点重启逻辑
+    # --------------------------------------------------------------------------
+    processed_ids: Set[str] = set()
+    if os.path.exists(output_file):
+        print(f"检测到输出文件已存在: {output_file}")
+        print("正在检查断点...")
+        try:
+            with open(output_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                        if "id" in record:
+                            processed_ids.add(record["id"])
+                    except json.JSONDecodeError:
+                        continue
+            print(f"已找到 {len(processed_ids)} 个已处理的样本，将跳过。")
+        except Exception as e:
+            print(f"读取断点文件时发生错误，将重新开始: {e}")
+    
+    # 过滤掉已经处理过的样本
+    original_count = len(dataset)
+    if processed_ids:
+        dataset = [d for d in dataset if d["id"] not in processed_ids]
+        print(f"剩余需处理样本数: {len(dataset)} / {original_count}")
+    
+    if len(dataset) == 0:
+        print("所有样本均已处理完毕。")
+        return
+    # --------------------------------------------------------------------------
 
     print(f"使用 {num_threads} 个线程进行并行推理，Pass@{k}")
 
@@ -223,7 +257,7 @@ def run_inference(
             for sample in dataset
         }
 
-        # 打开文件准备写入 (JSONL 模式)
+        # 打开文件准备写入 (JSONL 模式 - 追加模式 'a')
         with open(output_file, "a", encoding="utf-8") as f_out:
             with tqdm(
                 total=len(dataset), desc=f"Pass@{k} 推理进度", unit="样本"
@@ -260,7 +294,6 @@ def run_inference(
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="Pass@K 推理脚本")
-    # ... (参数定义保持大体不变，增加 --k)
     parser.add_argument(
         "--server-url",
         type=str,
@@ -277,7 +310,7 @@ def main():
     parser.add_argument(
         "--prior-threshold",
         type=int,
-        default=None,
+        default=64,
         help="尝试多少次之后提供错误答案提示",
     )
     parser.add_argument("--num-threads", type=int, default=4, help="线程数量")
@@ -305,28 +338,37 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.7, help="温度")
     parser.add_argument("--top-p", type=float, default=0.95, help="top-p")
     parser.add_argument("--enable-thinking", action="store_true", help="是否启用思考")
+    
+    # 新增 output-file 参数
+    parser.add_argument(
+        "--output-file",
+        type=str,
+        default=None,
+        help="指定输出文件路径，如果指定且文件存在，则启用断点续传",
+    )
 
     args = parser.parse_args()
 
-    timestamp = int(time.time())
-    model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-
-    # 修改输出文件名，增加 k 值标识，后缀改为 .jsonl
-
-    target_root = "/mnt/lustre/DATA/longyongchao"
-
-    # 第一步：判断路径是否存在；第二步：判断该路径是否为文件夹（目录）
-    if os.path.exists(target_root) and os.path.isdir(target_root):
-        save_dir_root="/mnt/lustre/DATA/longyongchao/CopyPasteLRM"
+    # 确定输出文件路径
+    if args.output_file:
+        output_file = args.output_file
     else:
-        save_dir_root="/data/lyc/CopyPasteLRM"
-    
-    output_file = f"{save_dir_root}/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.split}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
+        # 如果未指定 output_file，则使用默认的自动生成逻辑
+        timestamp = int(time.time())
+        model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
+        target_root = "/mnt/lustre/DATA/longyongchao"
+        
+        # 路径判断逻辑
+        if os.path.exists(target_root) and os.path.isdir(target_root):
+            save_dir_root = "/mnt/lustre/DATA/longyongchao/CopyPasteLRM"
+        else:
+            save_dir_root = "/data/lyc/CopyPasteLRM"
+        
+        output_file = f"{save_dir_root}/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.split}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
 
-    assert args.prior_threshold < args.k, "错误提示阈值不能大于最大采样次数"
+    if args.prior_threshold is not None:
+        assert args.prior_threshold < args.k, "错误提示阈值不能大于最大采样次数"
 
-    # 在运行前先写入元数据头部（可选，如果不喜欢 jsonl 混杂 meta info 可以去掉）
-    # 或者单独存一个 meta.json，这里为了简单，打印到控制台
     print(f"Output File: {output_file}")
 
     run_inference(
