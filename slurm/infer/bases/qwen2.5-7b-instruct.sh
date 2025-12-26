@@ -62,7 +62,7 @@ launch_vllm_service \
     "$VLLM_SERVED_MODEL_PATH" \
     $VLLM_MAX_L \
     $VLLM_MAX_S \
-    $VLLM_PORT > logs/vllm_server.log 2>&1 &
+    $VLLM_PORT > /tmp/vllm_server.log 2>&1 &
 
 VLLM_PID=$!
 
