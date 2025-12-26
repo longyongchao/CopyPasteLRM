@@ -1,0 +1,7 @@
+sbatch --dependency=afterany:461 slurm/sampling_pass_at_k_equal_0/qwen_2_5_3b_instruct-test.sh
+sbatch --dependency=afterany:462 slurm/sampling_pass_at_k_equal_0/qwen_2_5_3b_instruct-train.sh
+sbatch --dependency=afterany:463 slurm/sampling_pass_at_k_equal_0/qwen_2_5_7b_instruct-test.sh
+sbatch --dependency=afterany:464 slurm/sampling_pass_at_k_equal_0/qwen_2_5_7b_instruct-train.sh
+
+sbatch --dependency=afterany:123 slurm/sampling_pass_at_k_equal_0/qwen_3_4b_instruct_2507-test.sh
+sbatch --dependency=afterany:123 slurm/sampling_pass_at_k_equal_0/qwen_3_4b_instruct_2507-train.sh
