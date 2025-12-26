@@ -23,14 +23,14 @@ start_time=$(date +%s)
 
 
 # 0. 设置变量
-# VLLM_CONDA_ENV="vllm"
-VLLM_CONDA_ENV="ms-swift"
-# VLLM_DEVICES="0,1,2,3"
-VLLM_DEVICES="0,1"
-VLLM_SERVED_MODEL_NAME="Qwen3-4B-Instruct-2507" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="Qwen/Qwen3-4B-Instruct-2507" # vLLM服务模型路径
+VLLM_CONDA_ENV="vllm"
+# VLLM_CONDA_ENV="ms-swift"
+VLLM_DEVICES="0,1,2,3"
+# VLLM_DEVICES="0,1"
+VLLM_SERVED_MODEL_NAME="Qwen2.5-7B-Instruct" # vLLM服务模型名称
+VLLM_SERVED_MODEL_PATH="Qwen/Qwen2.5-7B-Instruct" # vLLM服务模型路径
 VLLM_MAX_L=32768
-VLLM_MAX_S=16
+VLLM_MAX_S=128
 VLLM_PORT=8124
 
 PASS_K_VALUE=128
@@ -39,7 +39,7 @@ PASS_TEMPERATURE=1.0
 
 # 数据集相关变量
 DATASET_MAX_SAMPLES=-1
-DATASET_SPLIT="train"
+DATASET_SPLIT="test"
 
 target_datasets=(
     "hotpotqa"
@@ -47,9 +47,9 @@ target_datasets=(
     "multirc"
     "popqa" 
     "musique"
-    # "qasper"
-    # "pubmedqa"
-    # "faitheval"
+    "qasper"
+    "pubmedqa"
+    "faitheval"
 )
 
 # 1. 拉起vLLM服务
