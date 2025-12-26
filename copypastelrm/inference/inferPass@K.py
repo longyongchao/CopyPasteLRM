@@ -312,7 +312,16 @@ def main():
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
 
     # 修改输出文件名，增加 k 值标识，后缀改为 .jsonl
-    output_file = f"/data/lyc/CopyPasteLRM/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.split}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
+
+    target_root = "/mnt/lustre/DATA/longyongchao"
+
+    # 第一步：判断路径是否存在；第二步：判断该路径是否为文件夹（目录）
+    if os.path.exists(target_root) and os.path.isdir(target_root):
+        save_dir_root="/mnt/lustre/DATA/longyongchao/CopyPasteLRM"
+    else:
+        save_dir_root="/data/lyc/CopyPasteLRM"
+    
+    output_file = f"{save_dir_root}/pass_at_{args.k}/{model_name_clean}/resamples_{args.max_samples}/{args.split}/{args.dataset}-tpr_{args.temperature}-tpp_{args.top_p}-enable_thinking_{args.enable_thinking}-tips_threshold_{args.prior_threshold}-{timestamp}.jsonl"
 
     assert args.prior_threshold < args.k, "错误提示阈值不能大于最大采样次数"
 
