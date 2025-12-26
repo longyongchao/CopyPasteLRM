@@ -2,8 +2,8 @@
 #SBATCH --job-name=qwen3
 #SBATCH --output=/tmp/output_%j.txt
 #SBATCH --error=/tmp/error_%j.txt
-#SBATCH --partition=gpu-a800
-#SBATCH --nodelist=gpunode3
+#SBATCH --partition=gpu-4090
+#SBATCH --nodelist=gpunode1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=00:00:00
