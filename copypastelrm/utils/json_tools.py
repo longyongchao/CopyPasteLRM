@@ -7,6 +7,7 @@ JSONL格式是每行一个JSON对象的文件格式，常用于机器学习数�
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Iterator, List, Dict, Any, Union, Optional
 
@@ -203,6 +204,10 @@ def save_jsonl(data: List[Dict], file_path: str):
     - data: 包含字典的列表 List[dict]
     - file_path: 保存的文件路径
     """
+
+    # 如果不存在则创建
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
     with open(file_path, 'w', encoding='utf-8') as f:
         for entry in data:
             # ensure_ascii=False 可以让中文正常显示，而不是显示为 \uXXXX

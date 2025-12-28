@@ -9,10 +9,10 @@ from copypastelrm.metrics.HotpotQA import compute_answer_em_hit_f1, update_sp
 
 def get_pass_at_k_equal_0_subset_ids(pass_at_k_equal_0_subset_ids_paths: List[str]) -> List[int]:
     pass_at_k_equal_0_subset_ids_paths = [
-        "key_data/hard/hotpotqa_hard.jsonl",
+        "key_data/reasonable_hard_subset/hotpotqa.jsonl",
+        "key_data/reasonable_hard_subset/musique.jsonl",
         "key_data/pass_at_k_equal_0_subset/multirc_sampling128_answerf1_tips_at_120_step.jsonl",
         "key_data/pass_at_k_equal_0_subset/faitheval-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766461616pass_at_0_subset_ids.jsonl",
-        "key_data/pass_at_k_equal_0_subset/musique-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766453865pass_at_0_subset_ids.jsonl",
         "key_data/pass_at_k_equal_0_subset/popqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766406374pass_at_0_subset_ids.jsonl",
         "key_data/pass_at_k_equal_0_subset/pubmedqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766460369pass_at_0_subset_ids.jsonl",
         "key_data/pass_at_k_equal_0_subset/qasper-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_32-1766428629pass_at_0_subset_ids.jsonl",

@@ -51,8 +51,10 @@ class LLMServer:
                     top_p=top_p,
                     extra_body={
                         "chat_template_kwargs": {"enable_thinking": enable_thinking},
+                        "enable_thinking": enable_thinking,
                     },
                 )
+                print(response)
                 return response.choices[0].message.content.strip()
                 
             except Exception as e:
