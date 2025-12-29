@@ -47,7 +47,7 @@ $answer
 """
 
 paths = {
-    "musique": "key_data/hard/musique_hard.jsonl",
+    "musique": "key_data/pass_at_k_equal_0_subset/train/answer_f1/musique_128.jsonl",
 }
 
 dataloader = {
@@ -55,10 +55,9 @@ dataloader = {
     # "2wiki":    TwoWikiMultihopQA(split="dev").dataset,
     # "popqa":    PopQA('train').dataset,
     # "multirc":  MultiRC(split='train').dataset,
-    "musique":  MuSiQue(split='validation').dataset,
+    "musique":  MuSiQue(split='train').dataset,
     # "qasper":   Qasper('train').dataset,
 }
-
 
 template = Template(user_prompt_template)
 
@@ -68,6 +67,10 @@ for key, path in paths.items():
     ids = read_jsonl_to_list(path)
     print(f"{key} has {len(ids)} samples that pass at k=0")
 
+    print('Filtering 2hop samples...', len(ids))
+    ids = [id for id in ids if '2hop' not in id]
+    print('Filtering 2hop samples done, len(ids):', len(ids))
+
     random.shuffle(ids)
     
     origin_data = dataloader[key]
@@ -75,9 +78,11 @@ for key, path in paths.items():
     avaible_data = []
 
     for i in tqdm(ids):
+
         if i not in origin_data:
             print('id not in origin_data, id: ', i)
             continue
+
         origin_item = origin_data[i]
         query = origin_item["query"]
         context = origin_item["context"]
@@ -100,7 +105,7 @@ for key, path in paths.items():
             "id": i,
             "llm_response": response,
         })
+
+        save_jsonl(avaible_data, f"key_data/reasonable_hard_subset/train/{key}_answer_f1_128.jsonl")
         
-    # 获取path所在的文件夹
-    folder = os.path.dirname(path)
-    save_jsonl(avaible_data, folder + f"/avaible_pass@K=0_subset_{key}.jsonl")
+    
