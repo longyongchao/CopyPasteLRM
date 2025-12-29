@@ -33,20 +33,20 @@ export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
 export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
-export BATCH_SIZE=3
+export BATCH_SIZE=9
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
-export RLHF_DATASET="Qwen3-4B-I_2000_deepseek"
+export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_copypaste"
 
 # 生成时间戳和实验名称
-timestamp=$(date +%Y%m%d%H%M%S)
-EXP_NAME=${MODEL_NAME}-sparse_ans_em_leap-${timestamp}
+timestamp=$(date +%m%d%H%M%S)
+EXP_NAME=V4-${timestamp}-dense_copypaste_warmup-${MODEL_NAME}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
-export SPLIT_DATASET_RATIO=0.0092470277
+export SPLIT_DATASET_RATIO=0
 
 export SAVE_STEPS=200
-export EVAL_STEPS=300
+export EVAL_STEPS=500
 export NUM_TRAIN_EPOCHS=1
 
 # SwanLab 配置
@@ -118,12 +118,13 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
-export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_em"
+export COPY_REWARD_MODE="dense"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_ANSWER=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
-export SWANLAB_EXP_NAME="[just_1_stage]-${EXP_NAME}"
+export REWARD_COPY=0.8
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY}"
+export SWANLAB_EXP_NAME="[1/2]-${EXP_NAME}"
 export MAX_STEPS=-1
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型
@@ -143,6 +144,7 @@ wait_for_vllm
 echo "[Stage 1] Starting RLHF Training..."
 bash rlhf_stage1.sh
 
+
 # 检查产物
 STAGE1_LAST=${STAGE1_OUTPUT_DIR}/last
 if [ ! -d "${STAGE1_LAST}" ]; then
@@ -152,6 +154,34 @@ fi
 
 echo "[Stage 1] Completed Successfully."
 echo "-------------------------------------"
+
+# ================= Stage 2 =================
+echo "========== Starting Stage 2 =========="
+
+# Stage2 Rewards
+export COPY_REWARD_MODE="sparse"
+export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer_em"
+export REWARD_FORMAT=0.1
+export REWARD_LENGTH=0.1
+export REWARD_COPY=0.4
+export REWARD_ANSWER=0.4
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
+export SWANLAB_EXP_NAME="[2/2]-${EXP_NAME}"
+export MAX_STEPS=-1
+
+# 1. 设置 Stage 2 的 Rollout 模型为 Stage 1 的产出
+# 注意：通常 GRPO 需要加载上一轮训练后的模型来采样
+export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
+
+# 2. 后台启动 Rollout 服务 (重新拉起)
+echo "[Stage 2] Launching Rollout Service with Stage 1 Checkpoint..."
+
+# 3. 等待服务就绪
+wait_for_vllm
+
+# 4. 启动 Stage 2 训练
+echo "[Stage 2] Starting RLHF Training..."
+bash rlhf_stage2.sh
 
 cleanup_rollout
 

@@ -35,18 +35,18 @@ export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
 export BATCH_SIZE=9
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
-export RLHF_DATASET="Qwen3-4B-I_2000_copypaste"
+export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"
 
 # 生成时间戳和实验名称
-timestamp=$(date +%Y%m%d%H%M%S)
-EXP_NAME=${MODEL_NAME}-dense_copypaste_warmup-${timestamp}
+timestamp=$(date +%m%d%H%M%S)
+EXP_NAME=V4-${timestamp}-dense_copy_answer_warmup_reasonable-${MODEL_NAME}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
-export SPLIT_DATASET_RATIO=0.0092470277
+export SPLIT_DATASET_RATIO=0
 
 export SAVE_STEPS=200
-export EVAL_STEPS=300
+export EVAL_STEPS=500
 export NUM_TRAIN_EPOCHS=1
 
 # SwanLab 配置
@@ -118,13 +118,14 @@ trap cleanup_rollout EXIT SIGINT SIGTERM
 echo "========== Starting Stage 1 =========="
 
 # Stage1 Rewards
+export COPY_REWARD_MODE="dense"
 export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer_f1"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
 export REWARD_COPY=0.4
 export REWARD_ANSWER=0.4
 export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
-export SWANLAB_EXP_NAME="[stage1]-${EXP_NAME}"
+export SWANLAB_EXP_NAME="[1/2]-${EXP_NAME}"
 export MAX_STEPS=-1
 
 # 1. 设置 Stage 1 的 Rollout 模型为基座模型
@@ -159,13 +160,14 @@ echo "-------------------------------------"
 echo "========== Starting Stage 2 =========="
 
 # Stage2 Rewards
+export COPY_REWARD_MODE="sparse"
 export REWARD_FUNCS="cplrm_format cplrm_length cplrm_copy cplrm_answer_em"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
-export REWARD_COPY=0.1
-export REWARD_ANSWER=0.7
+export REWARD_COPY=0.4
+export REWARD_ANSWER=0.4
 export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
-export SWANLAB_EXP_NAME="[stage2]-${EXP_NAME}"
+export SWANLAB_EXP_NAME="[2/2]-${EXP_NAME}"
 export MAX_STEPS=-1
 
 # 1. 设置 Stage 2 的 Rollout 模型为 Stage 1 的产出
