@@ -18,9 +18,6 @@ source scripts/utils/gpu_port.sh
 source scripts/utils/feishu.sh
 source scripts/utils/vllm.sh
 
-# 记录开始时间戳
-start_time=$(date +%s)
-
 
 # 0. 设置变量
 # VLLM_CONDA_ENV="vllm"
@@ -50,7 +47,7 @@ target_datasets=(
     "hotpotqa=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/hotpotqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766626204.jsonl"
     "2wikimultihopqa=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/2wikimultihopqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766706218.jsonl"
     "popqa=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/popqa-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766718146.jsonl" 
-    "musique"
+    "musique=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/musique-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766757362.jsonl"
     "multirc=/data/lyc/CopyPasteLRM/pass_at_128/Qwen3-4B-Instruct-2507/resamples_-1/train/multirc-tpr_1.0-tpp_0.95-enable_thinking_False-tips_threshold_120-1766715492.jsonl"
     # "qasper"
     # "pubmedqa"
@@ -89,8 +86,6 @@ source scripts/sampling_pass_at_k_equal_0/sampling_pass_at_k_equal_0.sh "${targe
 kill_process_on_port $VLLM_PORT
 kill_processes_on_gpus $VLLM_DEVICES
 
-# 5. 记录结束时间戳
-end_time=$(date +%s)
 
 # 格式化 target_datasets 以便在通知中显示 (将数组转换为字符串)
 datasets_str="${target_datasets[*]}"
@@ -98,4 +93,4 @@ datasets_str="${target_datasets[*]}"
 # 5. 发送飞书通知
 # 注意：prompt_types 变量在当前脚本未定义，如果它是上游变量请确保已设置。
 # 这里将 DATASET_NAME 替换为 datasets_str 以展示所有处理的任务。
-send_feishu_msg "✅ Pass@K=${PASS_K_VALUE} Subset采样完成 \n总耗时: $(($end_time - $start_time)/60)分钟 \n Model: $VLLM_SERVED_MODEL_NAME \n Datasets: $datasets_str \n Split: $DATASET_SPLIT"
+send_feishu_msg "✅ Pass@K=${PASS_K_VALUE} Subset采样完成 \n Model: $VLLM_SERVED_MODEL_NAME \n Datasets: $datasets_str \n Split: $DATASET_SPLIT"

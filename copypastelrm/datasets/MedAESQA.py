@@ -90,7 +90,7 @@ class MedAESQA(BaseDatasetLoader):
 
     def format_context(self, sample: Dict[str, Any]) -> str:
         context, _ = self.extract_citation(sample)
-        return "\n".join(context)
+        return "\n\n".join(context)
 
     def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
         _, supporting_facts = self.extract_citation(sample)
@@ -146,15 +146,15 @@ class MedAESQA(BaseDatasetLoader):
         
         for pid in context_paper_ids:
             paper_info = self.get_pubmed_title_abstract(pid)
-            context.append(f"{paper_info['title'].capitalize()}: {paper_info['abstract']}")
+            context.append(f"{paper_info['title'].capitalize()} {paper_info['abstract']}")
         
         return context, supporting_facts
         
                                 
 if __name__ == "__main__":
-    loader = MedAESQA(reload=False)
+    loader = MedAESQA(reload=True)
     dataset = loader.dataset_list
     print(f"数据集样本数: {len(loader.dataset)}")
-    print(dataset[0])
+    print(json.dumps(dataset[10], indent=2, ensure_ascii=False))
 
 

@@ -1,0 +1,89 @@
+#!/bin/bash
+set -e
+
+required_vars=(
+    STAGE1_OUTPUT_DIR
+    SWANLAB_TOKEN
+    SWANLAB_PROJECT
+    SWANLAB_EXP_NAME
+    SWANLAB_LARK_WEBHOOK_URL
+    SWANLAB_LARK_SECRET
+    MODEL_NAME
+    SAVE_STEPS
+    RLHF_NPROC_PER_NODE
+    RLHF_CUDA_VISIBLE_DEVICES_LIST
+    NUM_GENERATIONS
+    BATCH_SIZE
+    SPLIT_DATASET_RATIO
+    EVAL_STEPS
+    REWARD_FUNCS
+    REWARD_WEIGHTS
+    NUM_TRAIN_EPOCHS
+    MAX_STEPS
+    RLHF_DATASET
+    SWANLAB_MODEL
+)
+
+for v in "${required_vars[@]}"; do
+  if [ -z "${!v}" ]; then
+    echo "[ERROR] Environment variable $v is not set"
+    exit 1
+  fi
+done
+
+CUDA_VISIBLE_DEVICES=${RLHF_CUDA_VISIBLE_DEVICES_LIST} \
+NPROC_PER_NODE=${RLHF_NPROC_PER_NODE} \
+swift rlhf \
+    --rlhf_type grpo \
+    --model ${MODEL_NAME} \
+    --train_type full \
+    --custom_register_path dataset.py \
+    --dataset ${RLHF_DATASET} \
+    --data_seed 42 \
+    --split_dataset_ratio ${SPLIT_DATASET_RATIO} \
+    --load_from_cache_file true \
+    --torch_dtype bfloat16 \
+    --num_train_epochs ${NUM_TRAIN_EPOCHS} \
+    --download_mode force_redownload \
+    --per_device_train_batch_size ${BATCH_SIZE} \
+    --per_device_eval_batch_size ${BATCH_SIZE} \
+    --learning_rate 1e-6 \
+    --save_total_limit 2 \
+    --logging_steps 1 \
+    --output_dir ${STAGE1_OUTPUT_DIR} \
+    --add_version false \
+    --create_checkpoint_symlink true \
+    --gradient_accumulation_steps 1 \
+    --warmup_ratio 0.05 \
+    --dataloader_num_workers 1 \
+    --max_length 32768 \
+    --max_completion_length 2048 \
+    --external_plugins reward.py \
+    --reward_funcs ${REWARD_FUNCS} \
+    --reward_weights ${REWARD_WEIGHTS} \
+    --num_generations ${NUM_GENERATIONS} \
+    --deepspeed zero3 \
+    --temperature 1.0 \
+    --top_p 0.95 \
+    --log_completions true \
+    --log_entropy true \
+    --overlong_filter true \
+    --save_steps ${SAVE_STEPS} \
+    --eval_steps ${EVAL_STEPS} \
+    --max_steps ${MAX_STEPS} \
+    --report_to swanlab \
+    --swanlab_token ${SWANLAB_TOKEN} \
+    --swanlab_project ${SWANLAB_PROJECT} \
+    --swanlab_exp_name ${SWANLAB_EXP_NAME} \
+    --swanlab_lark_webhook_url ${SWANLAB_LARK_WEBHOOK_URL} \
+    --swanlab_lark_secret ${SWANLAB_LARK_SECRET} \
+    --swanlab_mode ${SWANLAB_MODEL} \
+    --beta 0.1 \
+    --dynamic_sample true \
+    --epsilon_high 0.25 \
+    --use_vllm true \
+    --vllm_mode server \
+    --vllm_server_host 127.0.0.1 \
+    --vllm_server_port 8000 \
+    --rollout_importance_sampling_mode token_mask \
+

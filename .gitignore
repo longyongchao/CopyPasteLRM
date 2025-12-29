@@ -13,7 +13,9 @@ logs/
 results/*
 *.log
 
-data/
+data/**/*.jsonl
+data/**/*.json
+data/**/*.parquet
 
 .poetry/
 poetry.lock
