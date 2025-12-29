@@ -1,9 +1,17 @@
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Literal
+import os
+import numpy as np
 
 from swift.plugin import ORM, orms
-from copypastelrm.metrics.HotpotQA import update_sp, f1_score, exact_match_score, hit_answer
+from copypastelrm.metrics.HotpotQA import (
+    update_sp,
+    f1_score,
+    exact_match_score,
+    hit_answer,
+)
 from copypastelrm.metrics.utils import remove_evidence_tags
+from copypastelrm.metrics.HotpotQA import normalize_answer, hit_answer
 
 
 class FormatValidator:
@@ -92,17 +100,17 @@ class FormatValidator:
 
         return is_all_valid, think_content, answer_content
 
-    def validate_evidence_tags(self, think_content: str) -> bool:
+    def validate_evidence_tags(self, think_content: str, at_least: int = 1) -> bool:
         """校验think中的copy标签"""
 
         if think_content is None:
             return False
-        
+
         # 使用大小写敏感的正则表达式
         copy_matches = list(self.copy_pattern.finditer(think_content))
 
         # 至少一对copy标签
-        if len(copy_matches) < 1:
+        if len(copy_matches) < at_least:
             return False
 
         # 检查每个copy标签的内容不能为空
@@ -147,7 +155,9 @@ class LengthValidator:
         """think内容长度大于answer内容长度"""
         return len(think_content) > len(answer_content)
 
-    def validate_think_vs_facts_length(self, think_content: str, times: float = 2.0) -> bool:
+    def validate_think_vs_facts_length(
+        self, think_content: str, times: float = 2.0
+    ) -> bool:
         predict_facts = self.format_validator.get_predict_facts(think_content)
 
         predict_facts_length = sum(len(fact) for fact in predict_facts)
@@ -197,7 +207,7 @@ class FormatReward(ORM):
 
 class LengthtReward(ORM):
     """计算模型生成内容的长度结构奖励。
-    
+
     该类通过对比推理过程（think）与最终答案（answer）及预测事实（facts）的长度关系，
     鼓励模型产生详尽的推理链条。
 
@@ -238,8 +248,7 @@ class LengthtReward(ORM):
 
             # 思考长度是否大于预测事实长度
             if think_content and self.length_validator.validate_think_vs_facts_length(
-                think_content,
-                times=2.0
+                think_content, times=2.0
             ):
                 reward_score += 0.4
 
@@ -249,79 +258,146 @@ class LengthtReward(ORM):
 
 
 class CopyReward(ORM):
-    """计算模型在推理过程中对关键事实提取（Copying）能力的奖励分值。
-    
-    该类通过对比模型 `think` 模块提取的片段与参考答案中的 `supporting_facts`（支撑事实）以及 
-    `context`（全文背景）的重合度来计算奖励。
-
-    奖励逻辑说明：
-    1. 格式校验：首选通过 format_validator 检查 completion 是否符合预定义结构。若不合规，返回 0.0。
-    2. 核心事实提取 (Facts Copied)：计算模型提取的内容与金标准支撑事实（gold_sfs）之间的 F1 分数。
-    3. 干扰项控制 (Non-facts Copied)：计算模型提取的内容中，属于背景信息但非核心事实部分的精确率（Precision）。
-    4. 加权求和：最终奖励 = (facts_copied_weight * F1) + (non_facts_copied_weight * Precision)。
-
-    Attributes:
-        format_validator: 格式验证器，负责解析推理内容并提取模型预测的支撑事实。
-        non_facts_copied_weight (float): 对复制非核心事实行为的奖励权重（默认为 0.1）。
-        facts_copied_weight (float): 对正确复制支撑事实行为的奖励权重（默认为 0.9）。
+    """
+    CopyReward 类：用于计算“复制”行为的奖励。
+    该奖励函数旨在鼓励模型从上下文中提取（复制）正确的支撑事实（Supporting Facts）。
     """
 
     def __init__(self):
+        # 从环境变量获取奖励模式，默认为 'dense' (稠密模式)
+        # dense: 必须找全所有支撑事实才给满分
+        # sparse: 找到部分支撑事实也给分
+        # 检查COPY_REWARD_MODE变量是否存在
+        if "COPY_REWARD_MODE" in os.environ:
+            self.copy_reward_mode: Literal['dense', 'sparse'] = os.getenv("COPY_REWARD_MODE", "dense") 
+        else:
+            raise ValueError("Environment variable 'COPY_REWARD_MODE' is not set. Please set it to 'dense' or 'sparse'.")
+        
+        # 初始化格式验证器，用于检查模型输出是否包含规范的 XML 标签（如 <think>, <evidence> 等）
         self.format_validator = FormatValidator()
+    
+    @staticmethod
+    def _compute_supporting_facts_reward(predict_sfs: List[str], gold_sfs: List[List[str]]) -> float:
+        """
+        计算预测的支撑事实与真实标签（Gold Supporting Facts）之间的匹配情况。
+        
+        Args:
+            predict_sfs: 模型预测出的支撑事实列表（字符串列表）。
+            gold_sfs: 真实的支撑事实列表。结构通常为 [[句子1片段...], [句子2片段...]]。
 
-        self.non_facts_copied_weight = 0.05
-        self.facts_copied_weight = 0.95
+        Returns:
+            reward_across_facts: 一个由 0 和 1 组成的列表，表示每个真实事实是否被成功预测。
+        """
+        # 初始化每个真实事实的奖励为 0
+        reward_across_facts = [0] * len(gold_sfs)
+        # 标记每个真实事实是否已被匹配过，防止重复计算
+        hit_tag = [False] * len(gold_sfs)
+
+        # 将每个真实事实（可能被分割为列表）拼接成完整的字符串
+        gold_sfs_flat = [" ".join(fact) for fact in gold_sfs] 
+
+        for predict_sf in predict_sfs:
+            # 使用 hit_answer 函数（外部定义）判断预测片段是否命中某个真实事实
+            hit_gold_sf_flat = hit_answer(predict_sf, gold_sfs_flat)
+            
+            # 如果命中了某个真实事实
+            if hit_gold_sf_flat:
+                # 找到该事实在列表中的索引
+                idx = gold_sfs_flat.index(hit_gold_sf_flat)
+                
+                # 计算该真实事实中最短部分的长度（可能是为了防止模型只复制极短的片段来骗取奖励）
+                # 注意：这里假设 gold_sfs[idx] 是一个列表，包含该事实的各个组成部分
+                miniemum_sf_length = min([len(gold_sf) for gold_sf in gold_sfs[idx]])
+                
+                # 核心判断逻辑：
+                # 1. 确实命中了 (hit_gold_sf_flat 非空)
+                # 2. 该事实之前没有被命中过 (hit_tag[idx] == False) -> 避免模型重复输出同一事实刷分
+                if hit_gold_sf_flat and hit_tag[idx] == False:
+                    # 3. 长度校验：模型预测（复制）的内容长度必须大于等于真实事实中最短部分的长度
+                    if len(predict_sf) >= miniemum_sf_length: 
+                        reward_across_facts[idx] = 1 # 标记该事实已解决，奖励置为 1
+                        hit_tag[idx] = True          # 更新命中标记
+        
+        return reward_across_facts
 
     def __call__(
         self, completions: List[str], solution: List[dict], **kwargs
     ) -> List[float]:
+        """
+        计算一批样本的奖励分数。
+        
+        Args:
+            completions: 模型生成的文本列表。
+            solution: 包含标准答案和支撑事实的数据列表。
+        """
         rewards = []
 
         for completion, sol in zip(completions, solution):
-            ctx = sol["context"]
+            # 获取该样本的标准支撑事实 (Gold Supporting Facts)
             facts = sol["supporting_facts"]
-            is_think_answer_valid, think_content, _ = self.format_validator.validate_structure(
-                completion
+            facts_count = len(facts)
+
+            # 1. 结构完整性校验
+            # 检查输出是否包含合法的思维链结构（如 <think>...</think>）
+            is_think_answer_valid, think_content, _ = (
+                self.format_validator.validate_structure(completion)
             )
 
-            # 如果EVIDENCE格式不合规，则不给予任何奖励
-            is_evidence_valid = self.format_validator.validate_evidence_tags(think_content)
+            # 2. Evidence 标签校验
+            # 检查是否包含 <evidence> 标签，且数量是否达标
+            # strict模式：必须包含与真实事实数量一致的 evidence 标签
+            # loose模式：至少包含 1 个 evidence 标签
+            is_evidence_valid = self.format_validator.validate_evidence_tags(
+                think_content=think_content,
+                at_least=facts_count if self.copy_reward_mode == 'sparse' else 1,
+            )
 
+            # 如果格式校验不通过（结构错误 或 evidence标签数量不足），直接给 0 分
             if not is_think_answer_valid or not is_evidence_valid:
                 rewards.append(0.0)
                 continue
 
+            # 3. 提取内容
+            # 从 <think> 部分提取出模型预测的所有 evidence 内容
             predict_facts = self.format_validator.get_predict_facts(think_content)
 
-            metrics = {
-                "sp_em": 0.0,
-                "sp_f1": 0.0,
-                "sp_prec": 0.0,
-                "sp_recall": 0.0,
-            }
+            # 4. 计算匹配度
+            # 调用静态方法，对比预测事实与真实事实
+            reward_across_facts = self._compute_supporting_facts_reward(
+                predict_sfs=predict_facts,
+                gold_sfs=facts,
+            ) 
 
-            _, _, _, facts_copied_f1 = update_sp(
-                metrics=metrics, predict_sfs=predict_facts, gold_sfs=facts
-            )
+            predict_count = len(predict_facts)
+            gold_count = len(facts)
+            hit_count = sum(reward_across_facts)
 
-            ctx_without_facts = remove_evidence_tags(ctx)
-            _, non_facts_copied_prec, _, _ = update_sp(
-                metrics=metrics, predict_sfs=predict_facts, gold_sfs=ctx_without_facts
-            )
+            # 计算 Precision 和 Recall
+            precision = hit_count / (predict_count + 1e-9) # 防止除零
+            recall = hit_count / (gold_count + 1e-9)
 
-            reward = (
-                self.non_facts_copied_weight * non_facts_copied_prec
-                + self.facts_copied_weight * facts_copied_f1
-            )
+            # 使用 F1 Score 作为奖励
+            f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
 
-            rewards.append(reward)
+            # 5. 按照稠密和稀疏模式，计算最终奖励
+            if self.copy_reward_mode == 'sparse':
+                # 【稀疏模式】：全对才给分
+                # 只有当命中的事实总数等于真实事实总数时，奖励为 1.0，否则为 0.0
+                if f1 == 1.0:
+                    rewards.append(1.0)
+                else:
+                    rewards.append(0.0)
+            else:
+                # 【稠密模式】：按比例给分
+                # 奖励分为：命中的事实数量 / 总事实数量
+                rewards.append(f1)
 
         return rewards
 
 
 class AnswerF1Reward(ORM):
     """计算模型生成回答的奖励分值。
-    
+
     该类通过验证回答的结构格式、F1 分数来评估生成内容的质量。
     奖励逻辑遵循以下优先级降级机制：
     1. 格式校验：如果格式非法，奖励为 0.0。
@@ -340,7 +416,9 @@ class AnswerF1Reward(ORM):
         rewards = []
 
         for completion, sol in zip(completions, solution):
-            is_all_valid, _, answer_content = self.format_validator.validate_structure(completion)
+            is_all_valid, _, answer_content = self.format_validator.validate_structure(
+                completion
+            )
             if not is_all_valid:
                 rewards.append(0.0)
                 continue
@@ -357,9 +435,10 @@ class AnswerF1Reward(ORM):
 
         return rewards
 
+
 class AnswerEMReward(ORM):
     """计算模型生成回答的奖励分值。
-    
+
     严格模式，计算EM，如果EM不匹配，则降级计算HIT，并且按照答案长度进行惩罚。
 
     如果EM==True，则奖励为1.0
@@ -377,7 +456,9 @@ class AnswerEMReward(ORM):
         rewards = []
 
         for completion, sol in zip(completions, solution):
-            is_all_valid, _, answer_content = self.format_validator.validate_structure(completion)
+            is_all_valid, _, answer_content = self.format_validator.validate_structure(
+                completion
+            )
             if not is_all_valid:
                 rewards.append(0.0)
                 continue
@@ -394,9 +475,10 @@ class AnswerEMReward(ORM):
 
         return rewards
 
+
 class AnswerHitReward(ORM):
     """计算模型生成回答的奖励分值。
-    
+
     严格模式，计算EM，如果EM不匹配，则降级计算HIT，并且按照答案长度进行惩罚。
 
     1. 如果EM==True，则奖励为1.0
@@ -415,7 +497,9 @@ class AnswerHitReward(ORM):
         rewards = []
 
         for completion, sol in zip(completions, solution):
-            is_all_valid, _, answer_content = self.format_validator.validate_structure(completion)
+            is_all_valid, _, answer_content = self.format_validator.validate_structure(
+                completion
+            )
             if not is_all_valid:
                 rewards.append(0.0)
                 continue

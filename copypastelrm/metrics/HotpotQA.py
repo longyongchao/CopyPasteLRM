@@ -124,6 +124,10 @@ def hit_score(prediction, gold_answers):
     """
     if not prediction:
         return False
+
+    if isinstance(gold_answers, str):
+        gold_answers = [gold_answers]
+
     for gold_answer in gold_answers:
         if normalize_answer(gold_answer) in normalize_answer(prediction):
             return True
@@ -142,6 +146,9 @@ def hit_answer(prediction, gold_answers):
     Returns:
         bool: 如果预测答案在标准答案中返回 True，否则返回 False
     """
+    if isinstance(gold_answers, str):
+        gold_answers = [gold_answers]
+
     for gold_answer in gold_answers:
         if normalize_answer(gold_answer) in normalize_answer(prediction):
             return gold_answer
