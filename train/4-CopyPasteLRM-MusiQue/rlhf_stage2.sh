@@ -37,7 +37,7 @@ swift rlhf \
     --rlhf_type grpo \
     --model ${MODEL_NAME} \
     --train_type full \
-    --custom_register_path dataset.py \
+    --custom_register_path train/4-CopyPasteLRM-MusiQue/dataset.py \
     --dataset ${RLHF_DATASET} \
     --data_seed 42 \
     --split_dataset_ratio ${SPLIT_DATASET_RATIO} \
@@ -57,7 +57,7 @@ swift rlhf \
     --dataloader_num_workers 1 \
     --max_length 32768 \
     --max_completion_length 2048 \
-    --external_plugins reward.py \
+    --external_plugins train/4-CopyPasteLRM-MusiQue/reward.py \
     --reward_funcs ${REWARD_FUNCS} \
     --reward_weights ${REWARD_WEIGHTS} \
     --num_generations ${NUM_GENERATIONS} \

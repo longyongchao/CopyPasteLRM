@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=qwen3_rlhf_pipeline
-#SBATCH --output=output.txt
-#SBATCH --error=error.txt
+#SBATCH --job-name=qwen3_r
+#SBATCH --output=/tmp/output_%j.txt
+#SBATCH --error=/tmp/error_%j.txt
 #SBATCH --partition=gpu-a800
 #SBATCH --nodelist=gpunode3
 #SBATCH --nodes=1
@@ -133,7 +133,7 @@ export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
 
 # 2. 后台启动 Rollout 服务
 echo "[Stage 1] Launching Rollout Service..."
-bash rollout.sh > rollout_stage1.log 2>&1 &
+bash train/4-CopyPasteLRM-MusiQue/rollout.sh > /tmp/rollout_stage1.log 2>&1 &
 ROLLOUT_PID=$!
 
 echo "[Stage 1] Rollout Service PID: $ROLLOUT_PID"
@@ -143,7 +143,7 @@ wait_for_vllm
 
 # 4. 启动训练
 echo "[Stage 1] Starting RLHF Training..."
-bash rlhf_stage1.sh
+bash train/4-CopyPasteLRM-MusiQue/rlhf_stage1.sh
 
 
 # 检查产物
@@ -182,7 +182,7 @@ wait_for_vllm
 
 # 4. 启动 Stage 2 训练
 echo "[Stage 2] Starting RLHF Training..."
-bash rlhf_stage2.sh
+bash train/4-CopyPasteLRM-MusiQue/rlhf_stage2.sh
 
 cleanup_rollout
 
