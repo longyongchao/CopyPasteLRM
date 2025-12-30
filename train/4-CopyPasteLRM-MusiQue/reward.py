@@ -275,6 +275,8 @@ class CopyReward(ORM):
         
         # 初始化格式验证器，用于检查模型输出是否包含规范的 XML 标签（如 <think>, <evidence> 等）
         self.format_validator = FormatValidator()
+
+        self.perfert_match_bonus = 1.5  # 完美匹配奖励系数
     
     @staticmethod
     def _compute_supporting_facts_reward(predict_sfs: List[str], gold_sfs: List[List[str]]) -> float:
@@ -390,7 +392,7 @@ class CopyReward(ORM):
             else:
                 # 【稠密模式】：按比例给分
                 # 奖励分为：命中的事实数量 / 总事实数量
-                rewards.append(f1)
+                rewards.append( f1 * self.perfert_match_bonus if f1 == 1.0 else f1 )
 
         return rewards
 
