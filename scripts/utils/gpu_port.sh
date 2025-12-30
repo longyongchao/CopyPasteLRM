@@ -78,3 +78,33 @@ function global_cleanup() {
         kill -9 $ROLLOUT_PID 2>/dev/null || true
     fi
 }
+
+function cleanup_rollout() {
+    echo "[Cleanup] Starting safety cleanup..."
+
+    # 1. 根据端口号 (8000) 杀死进程
+    # 使用 lsof 或 ss 找到监听 8000 端口的 PID
+    local port_pid=$(ss -tlnp | grep ':8000' | awk -F'pid=' '{print $2}' | cut -d',' -f1)
+    if [ -n "$port_pid" ]; then
+        echo "[Cleanup] Killing process on port 8000 (PID: $port_pid)"
+        kill -9 $port_pid 2>/dev/null || true
+    fi
+
+    # 2. 杀死 GPU 0 上正在运行的所有进程
+    # nvidia-smi --query-compute-apps 能够精确列出 GPU 上的进程 PID
+    local gpu_pids=$(nvidia-smi --gpu-id=0 --query-compute-apps=pid --format=csv,noheader,nounits)
+    if [ -n "$gpu_pids" ]; then
+        for pid in $gpu_pids; do
+            echo "[Cleanup] Killing process on GPU 0 (PID: $pid)"
+            kill -9 $pid 2>/dev/null || true
+        done
+    fi
+
+    # 3. 杀掉后台记录的 PID (预防万一)
+    if [ -n "$ROLLOUT_PID" ]; then
+        kill -9 $ROLLOUT_PID 2>/dev/null || true
+    fi
+    
+    sleep 2
+    echo "[Cleanup] GPU 0 and Port 8000 are now clear."
+}

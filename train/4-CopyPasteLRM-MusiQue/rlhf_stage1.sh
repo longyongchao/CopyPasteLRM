@@ -22,6 +22,15 @@ required_vars=(
     MAX_STEPS
     RLHF_DATASET
     SWANLAB_MODEL
+    GRPO_TEMPERATURE
+    GRPO_BETA
+    GRPO_TOP_P
+    GRPO_MAX_NEW_TOKENS
+    GRPO_WARMUP_RATIO
+    GRPO_GRADIENT_ACCUMULATION_STE
+    GRPO_LEARNING_RATE
+    GRPO_SAVE_TOTAL_LIMIT
+    GRPO_EPSILON_HIGH
 )
 
 for v in "${required_vars[@]}"; do
@@ -47,24 +56,24 @@ swift rlhf \
     --download_mode force_redownload \
     --per_device_train_batch_size ${BATCH_SIZE} \
     --per_device_eval_batch_size ${BATCH_SIZE} \
-    --learning_rate 1e-6 \
-    --save_total_limit 2 \
+    --learning_rate ${GRPO_LEARNING_RATE} \
+    --save_total_limit ${GRPO_SAVE_TOTAL_LIMIT} \
     --logging_steps 1 \
     --output_dir ${STAGE1_OUTPUT_DIR} \
     --add_version false \
     --create_checkpoint_symlink true \
-    --gradient_accumulation_steps 1 \
-    --warmup_ratio 0.05 \
+    --gradient_accumulation_steps ${GRPO_GRADIENT_ACCUMULATION_STEPS} \
+    --warmup_ratio ${GRPO_WARMUP_RATIO} \
     --dataloader_num_workers 1 \
     --max_length 32768 \
-    --max_completion_length 2048 \
+    --max_completion_length ${GRPO_MAX_NEW_TOKENS} \
     --external_plugins train/4-CopyPasteLRM-MusiQue/reward.py \
     --reward_funcs ${REWARD_FUNCS} \
     --reward_weights ${REWARD_WEIGHTS} \
     --num_generations ${NUM_GENERATIONS} \
     --deepspeed zero3 \
-    --temperature 1.0 \
-    --top_p 0.95 \
+    --temperature ${GRPO_TEMPERATURE} \
+    --top_p ${GRPO_TOP_P} \
     --log_completions true \
     --log_entropy true \
     --overlong_filter true \
@@ -78,9 +87,9 @@ swift rlhf \
     --swanlab_lark_webhook_url ${SWANLAB_LARK_WEBHOOK_URL} \
     --swanlab_lark_secret ${SWANLAB_LARK_SECRET} \
     --swanlab_mode ${SWANLAB_MODEL} \
-    --beta 0.1 \
+    --beta ${GRPO_BETA} \
     --dynamic_sample true \
-    --epsilon_high 0.25 \
+    --epsilon_high ${GRPO_EPSILON_HIGH} \
     --use_vllm true \
     --vllm_mode server \
     --vllm_server_host 127.0.0.1 \

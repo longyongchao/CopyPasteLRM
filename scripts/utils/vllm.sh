@@ -58,3 +58,22 @@ function wait_for_vllm() {
     done
     echo "[Pipeline] vLLM is ready!"
 }
+
+# 函数：等待 vLLM 服务启动
+function wait_for_vllm_old() {
+    echo "[Pipeline] Waiting for vLLM to be ready on port 8000..."
+    local max_retries=60  # 等待 60 * 10s = 10分钟
+    local count=0
+    
+    # 循环检查 /health 接口状态码是否为 200
+    while ! curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health/ | grep -q "200"; do
+        if [ $count -ge $max_retries ]; then
+            echo "[Error] vLLM failed to start within timeout."
+            return 1
+        fi
+        echo "   ... waiting for vLLM (attempt $((count+1))/$max_retries)"
+        sleep 10
+        count=$((count+1))
+    done
+    echo "[Pipeline] vLLM is ready!"
+}
