@@ -33,7 +33,7 @@ export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
 export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
-export BATCH_SIZE=9
+export BATCH_SIZE=3
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
 export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"
 
@@ -43,7 +43,7 @@ EXP_NAME=V4-${timestamp}-dense_copy_answer_warmup_reasonable-${MODEL_NAME}
 
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
-export SPLIT_DATASET_RATIO=0
+export SPLIT_DATASET_RATIO=0.01
 
 export SAVE_STEPS=200
 export EVAL_STEPS=500
