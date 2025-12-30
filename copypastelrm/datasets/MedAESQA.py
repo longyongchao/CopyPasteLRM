@@ -153,8 +153,8 @@ class MedAESQA(BaseDatasetLoader):
                                 
 if __name__ == "__main__":
     loader = MedAESQA(reload=True)
-    dataset = loader.dataset_list
+    dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
-    print(json.dumps(dataset[10], indent=2, ensure_ascii=False))
+    print(dataset['122']['context'])
 
 
