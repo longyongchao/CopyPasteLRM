@@ -92,7 +92,7 @@ function cleanup_rollout() {
 
     # 2. 杀死 GPU 0 上正在运行的所有进程
     # nvidia-smi --query-compute-apps 能够精确列出 GPU 上的进程 PID
-    local gpu_pids=$(nvidia-smi --gpu-id=0 --query-compute-apps=pid --format=csv,noheader,nounits)
+    local gpu_pids=$(nvidia-smi --id=0 --query-compute-apps=pid --format=csv,noheader,nounits)
     if [ -n "$gpu_pids" ]; then
         for pid in $gpu_pids; do
             echo "[Cleanup] Killing process on GPU 0 (PID: $pid)"

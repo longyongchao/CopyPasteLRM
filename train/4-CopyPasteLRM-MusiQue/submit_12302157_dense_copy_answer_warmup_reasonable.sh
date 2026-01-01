@@ -13,8 +13,6 @@
 set -e
 set -o pipefail
 
-source scripts/utils/vllm.sh
-source scripts/utils/gpu_port.sh
 
 # 定义要判断的核心目录
 TARGET_DIR="/mnt/lustre/DATA/longyongchao"
@@ -36,7 +34,7 @@ export ROLLOUT_CUDA_VISIBLE_DEVICES_LIST="0"
 
 export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
-export BATCH_SIZE=18
+export BATCH_SIZE=3
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
 export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"
 
@@ -47,12 +45,12 @@ EXP_NAME=12302157-${timestamp}-dense_copy_answer_warmup_reasonable-${MODEL_NAME}
 export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
 export SPLIT_DATASET_RATIO=0.01
-export GRPO_TEMPERATURE=0.6
+export GRPO_TEMPERATURE=1.0
 export GRPO_BETA=0.001
 export GRPO_TOP_P=0.95
 export GRPO_MAX_NEW_TOKENS=2048
 export GRPO_WARMUP_RATIO=0.05
-export GRPO_GRADIENT_ACCUMULATION_STEPS=8
+export GRPO_GRADIENT_ACCUMULATION_STEPS=4
 export GRPO_LEARNING_RATE=1e-7
 export GRPO_SAVE_TOTAL_LIMIT=3
 export GRPO_EPSILON_HIGH=0.25
@@ -62,11 +60,61 @@ export EVAL_STEPS=100
 export NUM_TRAIN_EPOCHS=1
 
 # SwanLab 配置
-export SWANLAB_MODEL="cloud"
+export SWANLAB_MODEL="local"
 export SWANLAB_PROJECT="CopyPasteLRM"
 export SWANLAB_TOKEN="eD9F8nh3oF5zAeyopbN8f"
 export SWANLAB_LARK_WEBHOOK_URL="https://open.feishu.cn/open-apis/bot/v2/hook/880e2480-71ed-4f29-8495-b7fa75c8cbd7"
 export SWANLAB_LARK_SECRET="IzE5LR2O7ojQkRUO9g96Qe"
+
+# 函数：等待 vLLM 服务启动
+function wait_for_vllm_old() {
+    echo "[Pipeline] Waiting for vLLM to be ready on port 8000..."
+    local max_retries=60  # 等待 60 * 10s = 10分钟
+    local count=0
+    
+    # 循环检查 /health 接口状态码是否为 200
+    while ! curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health/ | grep -q "200"; do
+        if [ $count -ge $max_retries ]; then
+            echo "[Error] vLLM failed to start within timeout."
+            return 1
+        fi
+        echo "   ... waiting for vLLM (attempt $((count+1))/$max_retries)"
+        sleep 10
+        count=$((count+1))
+    done
+    echo "[Pipeline] vLLM is ready!"
+}
+
+
+function cleanup_rollout() {
+    echo "[Cleanup] Starting safety cleanup..."
+
+    # 1. 根据端口号 (8000) 杀死进程
+    # 使用 lsof 或 ss 找到监听 8000 端口的 PID
+    local port_pid=$(ss -tlnp | grep ':8000' | awk -F'pid=' '{print $2}' | cut -d',' -f1)
+    if [ -n "$port_pid" ]; then
+        echo "[Cleanup] Killing process on port 8000 (PID: $port_pid)"
+        kill -9 $port_pid 2>/dev/null || true
+    fi
+
+    # 2. 杀死 GPU 0 上正在运行的所有进程
+    # nvidia-smi --query-compute-apps 能够精确列出 GPU 上的进程 PID
+    local gpu_pids=$(nvidia-smi --id=0 --query-compute-apps=pid --format=csv,noheader,nounits)
+    if [ -n "$gpu_pids" ]; then
+        for pid in $gpu_pids; do
+            echo "[Cleanup] Killing process on GPU 0 (PID: $pid)"
+            kill -9 $pid 2>/dev/null || true
+        done
+    fi
+
+    # 3. 杀掉后台记录的 PID (预防万一)
+    if [ -n "$ROLLOUT_PID" ]; then
+        kill -9 $ROLLOUT_PID 2>/dev/null || true
+    fi
+    
+    sleep 2
+    echo "[Cleanup] GPU 0 and Port 8000 are now clear."
+}
 
 # --- 2. 注册 Trap ---
 # EXIT: 脚本正常或异常退出时触发
@@ -95,9 +143,7 @@ export CURRENT_ROLLOUT_MODEL=${MODEL_NAME}
 # 2. 后台启动 Rollout 服务
 echo "[Stage 1] Launching Rollout Service..."
 bash train/4-CopyPasteLRM-MusiQue/rollout.sh > /tmp/rollout_stage1.log 2>&1 &
-ROLLOUT_PID=$!
 
-echo "[Stage 1] Rollout Service PID: $ROLLOUT_PID"
 
 # 3. 等待服务就绪
 wait_for_vllm_old
