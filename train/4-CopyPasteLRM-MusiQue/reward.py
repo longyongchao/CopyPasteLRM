@@ -397,6 +397,52 @@ class CopyReward(ORM):
         return rewards
 
 
+class CopyFormatReward(ORM):
+    def __init__(self):
+
+        self.format_validator = FormatValidator()
+
+    def __call__(
+        self, completions: List[str], solution: List[dict], **kwargs
+    ) -> List[float]:
+        """
+        计算一批样本的奖励分数。
+        
+        Args:
+            completions: 模型生成的文本列表。
+            solution: 包含标准答案和支撑事实的数据列表。
+        """
+        rewards = []
+
+        for completion, sol in zip(completions, solution):
+            # 获取该样本的标准支撑事实 (Gold Supporting Facts)
+            facts = sol["supporting_facts"]
+
+            # 1. 结构完整性校验
+            # 检查输出是否包含合法的思维链结构（如 <think>...</think>）
+            is_think_answer_valid, think_content, _ = (
+                self.format_validator.validate_structure(completion)
+            )
+            
+            # 2. Evidence 标签校验
+            # 检查是否包含 <evidence> 标签，且数量是否达标
+            # strict模式：必须包含与真实事实数量一致的 evidence 标签
+            # loose模式：至少包含 1 个 evidence 标签
+            is_evidence_valid = self.format_validator.validate_evidence_tags(
+                think_content=think_content,
+                at_least=1,
+            )
+
+            # 如果格式校验不通过（结构错误 或 evidence标签数量不足），直接给 0 分
+            if not is_think_answer_valid or not is_evidence_valid:
+                rewards.append(0.0)
+            else:
+                rewards.append(1.0)
+
+
+        return rewards
+
+
 class AnswerF1Reward(ORM):
     """计算模型生成回答的奖励分值。
 
@@ -523,6 +569,7 @@ orms["cplrm_format"] = FormatReward
 orms["cplrm_length"] = LengthtReward
 
 orms["cplrm_copy"] = CopyReward
+orms["cplrm_copy_format"] = CopyFormatReward
 
 orms["cplrm_answer_f1"] = AnswerF1Reward
 orms["cplrm_answer_em"] = AnswerEMReward
