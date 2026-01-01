@@ -2,8 +2,8 @@
 #SBATCH --job-name=qwen3
 #SBATCH --output=/tmp/output_%j.txt
 #SBATCH --error=/tmp/error_%j.txt
-#SBATCH --partition=gpu-a800
-#SBATCH --nodelist=gpunode3
+#SBATCH --partition=gpu-4090
+#SBATCH --nodelist=gpunode1
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=00:00:00
@@ -27,10 +27,10 @@ VLLM_CONDA_ENV="vllm"
 # VLLM_CONDA_ENV="ms-swift"
 VLLM_DEVICES="0,1,2,3"
 # VLLM_DEVICES="0,1"
-VLLM_SERVED_MODEL_NAME="7_dense_copy_f1_answer_f1_warmup_qwen_3_4b_instruct" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/V4-1230112607-dense_copy_answer_warmup_reasonable-Qwen/Qwen3-4B-Instruct-2507/stage2/last" # vLLM服务模型路径
+VLLM_SERVED_MODEL_NAME="12302157_dense_copy_answer_warmup_reasonable" # vLLM服务模型名称
+VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/12302157-1231005928-dense_copy_answer_warmup_reasonable-Qwen/Qwen3-4B-Instruct-2507/stage2/checkpoint-322"
 VLLM_MAX_L=32768
-VLLM_MAX_S=128
+VLLM_MAX_S=16
 VLLM_PORT=8124
 VLLM_TEMPERATURE=0.0
 
