@@ -1,7 +1,7 @@
 #!/bin/bash
 
 paths=(
-    results/infer/test/8_dense_copy_answer_f1_warmup_musique_reasonable_qwen_3_4b_instruct/resamples_-1/seed_42/tpr_0.0/copypaste-prompt_copypaste-1767114930.json
+    results/infer/test/12302157-0102002204-only_copy_format_q3_4b_I_reasonable/resamples_-1/seed_42/tpr_0.0/copypaste-prompt_copypaste-1767330421.json
 )
 
 # 遍历paths
