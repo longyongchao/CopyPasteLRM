@@ -564,6 +564,109 @@ class AnswerHitReward(ORM):
 
         return rewards
 
+class CopyAnswerCombinedReward(ORM):
+    """
+    结合 Copy 和 Answer 的复合奖励函数（带错误惩罚机制）。
+    
+    设计理念 (基于 #CopyPasteLRM 新想法 + 惩罚机制):
+    1. 耦合性：Answer 的奖励建立在 Copy 正确的基础上。
+    2. 鼓励机制：
+       - Copy F1 决定基础分。
+       - Answer 正确 (F1>0.8) 提供翻倍奖励 (Bonus)。
+    3. 惩罚机制 (New):
+       - 对于每一个“抄错”或“冗余”的事实 (Wrong/Redundant Facts)，扣除固定分数。
+       - 目的：抑制模型为了凑数而通过胡乱复制来“撞” F1 的行为。
+    
+    计算公式:
+       Base_Score = Copy_F1 * (1.0 + Answer_Correct_Bonus)
+       Penalty = (Predict_Count - Unique_Hit_Count) * Penalty_Weight
+       
+       Final_Reward = Base_Score - Penalty
+    """
+
+    def __init__(self):
+        """
+        Args:
+            wrong_penalty_weight (float): 每一个错误或冗余引用扣除的分数。默认 0.1。
+        """
+        self.format_validator = FormatValidator()
+        # 复用 CopyReward 中的静态方法计算 facts 匹配度
+        self.compute_facts_logic = CopyReward._compute_supporting_facts_reward
+        self.wrong_penalty_weight = 0.1
+        self.answer_f1_perfect_threshold = 0.7
+
+    def __call__(
+        self, completions: List[str], solution: List[dict], **kwargs
+    ) -> List[float]:
+        rewards = []
+
+        for completion, sol in zip(completions, solution):
+            # --- 1. 基础结构校验 ---
+            is_valid_structure, think_content, answer_content = (
+                self.format_validator.validate_structure(completion)
+            )
+            
+            # 格式错误直接给0分（或者也可以给一个负分，这里保持0分）
+            if not is_valid_structure:
+                rewards.append(0.0)
+                continue
+
+            # --- 2. 计算 Copy 相关的指标 ---
+            gold_facts = sol["supporting_facts"]
+            predict_facts = self.format_validator.get_predict_facts(think_content)
+            
+            # 如果没有预测任何事实，给 0 分
+            if not predict_facts:
+                rewards.append(0.0)
+                continue
+
+            # 计算事实匹配情况 (返回的是 boolean list, 对应 gold_facts 是否被命中)
+            # 注意：这个方法只统计 Unique 的命中。重复引用同一个事实不会增加 hit_count。
+            reward_across_facts = self.compute_facts_logic(predict_facts, gold_facts)
+            
+            predict_count = len(predict_facts)
+            gold_count = len(gold_facts)
+            hit_count = sum(reward_across_facts) # 命中了多少个唯一的正确事实
+
+            # 2.1 计算 F1
+            precision = hit_count / (predict_count + 1e-9)
+            recall = hit_count / (gold_count + 1e-9)
+            copy_f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
+
+            # 2.2 计算错误/冗余引用的数量 (用于惩罚)
+            # 预测总数 - 命中正确事实数 = 没用的引用数 (可能是错的，也可能是重复的)
+            wrong_count = predict_count - hit_count
+
+            # --- 3. 计算 Answer Score ---
+            gold_answers = sol["answers"]
+            best_ans_f1 = 0.0
+            
+            if answer_content:
+                for gold_answer in gold_answers:
+                    f1, _, _ = f1_score(answer_content, gold_answer)
+                    best_ans_f1 = max(best_ans_f1, f1)
+
+            # --- 4. 融合奖励与惩罚 ---
+            
+            # 判定答案是否正确 (阈值 > 0.8)
+            is_answer_correct = 1.0 if best_ans_f1 > self.answer_f1_perfect_threshold else 0.0
+            
+            # 基础奖励：CopyF1 * (1 + 答对奖励)
+            # 范围: [0, 2.0] (假设 F1=1.0 且答对)
+            base_reward = copy_f1 * (1.0 + is_answer_correct)
+            
+            # 惩罚项：错误数量 * 权重
+            # 例如：抄错了3条，扣 0.3 分
+            penalty = wrong_count * self.wrong_penalty_weight
+            
+            final_reward = base_reward - penalty
+
+            rewards.append(final_reward)
+
+        return rewards
+
+# 注册新的奖励函数
+orms["cplrm_combined"] = CopyAnswerCombinedReward
 
 orms["cplrm_format"] = FormatReward
 orms["cplrm_length"] = LengthtReward
