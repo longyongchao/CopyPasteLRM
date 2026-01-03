@@ -10,8 +10,6 @@
 #SBATCH --mem=64G
 #SBATCH --requeue
 
-###### 奖励曲线起不来，有可能是噪音文档过多？
-
 set -e
 set -o pipefail
 
@@ -40,7 +38,7 @@ export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
 export BATCH_SIZE=3
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
-export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"
+export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste#200"
 
 # 生成时间戳和实验名称
 timestamp=$(date +%m%d%H%M%S)
@@ -50,7 +48,7 @@ export STAGE1_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage1
 export STAGE2_OUTPUT_DIR=${EXP_ROOT}/${EXP_NAME}/stage2
 export SPLIT_DATASET_RATIO=0.05
 export GRPO_TEMPERATURE=0.8
-export GRPO_BETA=0.01
+export GRPO_BETA=0.001
 export GRPO_TOP_P=0.95
 export GRPO_MAX_NEW_TOKENS=2048
 export GRPO_WARMUP_RATIO=0.05
@@ -64,7 +62,7 @@ export EVAL_STEPS=100
 export NUM_TRAIN_EPOCHS=3
 
 # SwanLab 配置
-export SWANLAB_EXP_NAME="将事实复制和答案挂钩-并加入复制错误惩罚(Q3-4B-I)"
+export SWANLAB_EXP_NAME="将事实复制和答案挂钩-并加入复制错误惩罚(Q3-4B-I)_v2_beta降低10倍_只抽样200数据"
 export SWANLAB_MODEL="local"
 export SWANLAB_PROJECT="CopyPasteLRM"
 export SWANLAB_TOKEN="eD9F8nh3oF5zAeyopbN8f"
