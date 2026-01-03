@@ -6,44 +6,60 @@ from typing import Literal
 class MuSiQue(BaseDatasetLoader):
     """https://huggingface.co/datasets/dgslibisey/MuSiQue"""
         
-    def __init__(self, split: Literal["train", "validation"]="validation", reload: bool = False, max_samples: int = -1):
+    def __init__(
+        self, 
+        split: Literal["train", "validation"]="validation", 
+        reload: bool = False, 
+        max_samples: int = -1,        
+        distractor_docs: int = 8,
+        unanswerable: bool = False
+    ):
+
         super().__init__(
             dataset_path="dgslibisey/MuSiQue",
             split=split,
             offline=True,
             reload=reload,
-            max_samples=max_samples
+            max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable, # 是否不包含gold context
         )
     
-    def format_answer(self, sample: Dict[str, Any]) -> List[str]:
-        answer = sample.get("answer", "")
-        answer_aliases = sample.get("answer_aliases", [])
-        return [answer] + answer_aliases
-    
-    def format_context(self, sample: Dict[str, Any]) -> str:
-        context = sample["paragraphs"]
-        context_text = ""
-        for paragraph in context:
-            title = paragraph["title"]
-            paragraph_text = paragraph["paragraph_text"]
-            context_text += f"\n{title}. {paragraph_text}"
-        return context_text
-    
-    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
-        context = sample["paragraphs"]
-        sfs = []
-        for paragraph in context:
-            is_supporting = paragraph["is_supporting"]
-            if is_supporting:
-                paragraph_text = paragraph["paragraph_text"]
-                sfs.append(paragraph_text.strip())
-        return sfs
-        
+    def format_item(self, sample: Dict[str, Any]):
+        _id = sample['id']
+        query = sample['question']
+        answers = [sample['answer']] + sample['answer_aliases']
+        paragraphs = sample["paragraphs"]
+        corpus = []
 
+        for paragraph in paragraphs:
+            title = paragraph["title"]
+            paragraph_sents = self.nlp.split_sentences_spacy(paragraph['paragraph_text'])
+            is_supporting = paragraph['is_supporting']
+            sentences = paragraph_sents
+            facts = paragraph_sents if is_supporting else None
+            corpus.append({
+                "title": title,
+                "sentences": sentences,
+                "facts": facts
+            })
+        
+        return {
+            "id": _id,
+            "query": query,
+            "answers": answers,
+            "corpus": corpus,
+            "extra": {
+                "question_decomposition": sample['question_decomposition']
+            }
+        }
+
+    
 if __name__ == "__main__":
+    import json
     loader = MuSiQue(reload=True, split='validation')
     dataset = loader.dataset
-    print(f"数据集样本数: {len(loader.dataset)}")
-    loader.random_sample()
+    dataset_list = loader.dataset_list
+    print(json.dumps(dataset_list[0], indent=4))
 
 

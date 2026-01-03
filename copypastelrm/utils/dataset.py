@@ -1,5 +1,41 @@
 from typing import List
 
+import spacy
+
+class NLPTool:
+    def __init__(self):
+        # 加载英文模型 (建议在全局加载一次，避免函数重复调用导致性能下降)
+        # disable 参数禁用了不需要的组件（如命名实体识别），可以提高分句速度
+        try:
+            print('正在装载 spacy 模型...')
+            self.nlp = spacy.load("en_core_web_sm", disable=["ner", "textcat"])
+        except OSError:
+            print("正在下载 spacy 模型...")
+            from spacy.cli import download
+            download("en_core_web_sm")
+            self.nlp = spacy.load("en_core_web_sm", disable=["ner", "textcat"])
+
+    def split_sentences_spacy(self, text):
+        """
+        使用 spaCy 对英文文本进行分句。
+        
+        Args:
+            text (str): 输入的大段文本。
+            
+        Returns:
+            list: 包含分句后字符串的列表。
+        """
+        # 处理文本
+        # nlp() 会自动进行分词、词性标注和依存句法分析，从而确定句子边界
+        doc = self.nlp(text)
+        
+        # doc.sents 是一个生成器，生成 Span 对象
+        # 我们将其转换为文本并去除首尾空白
+        sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+        
+        return sentences
+
+
 class StringContainmentFilter:
     def __init__(self, data: List[str]):
         # 预处理：去重，防止 "a" 和 "a" 互相判断导致逻辑错误

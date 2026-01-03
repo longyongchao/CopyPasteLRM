@@ -5,13 +5,26 @@ from typing import Literal
 
 
 class TwoWikiMultihopQA(BaseDatasetLoader):
-    def __init__(self, split: Literal['dev', 'test'] = 'dev', reload: str = False, max_samples: int = -1):
+    """
+    TwoWikiMultihopQA数据集加载器类，继承自BaseDatasetLoader。
+    用于处理和加载TwoWikiMultihopQA多跳问答数据集。
+    """
+    def __init__(
+        self, 
+        split: Literal['dev', 'test'] = 'dev', 
+        reload: str = False, 
+        max_samples: int = -1,
+        distractor_docs: int = 8,
+        unanswerable: bool = False,
+    ):
         super().__init__(
             dataset_path="data/2WikiMultihopQA" + '/' + split + '.json',
             split=split,
             offline=True,
             reload=reload,
-            max_samples=max_samples
+            max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,  # 是否不包含gold context
         )
     
     def download_dataset(self):
@@ -19,42 +32,60 @@ class TwoWikiMultihopQA(BaseDatasetLoader):
         with open(self.dataset_path, 'r') as f:
             return json.load(f)
     
-    def format_id(self, sample: Dict[str, Any]) -> str:
-        return sample["_id"]
-
-    def format_context(self, sample: Dict[str, Any]) -> str:
-        context_text = ""
-        context = sample['context']
-
-        for paragraph in context:
-            title = paragraph[0]
-            paragraph_text = " ".join(paragraph[1])
-            context_text += f"\n{title}. {paragraph_text}"
-        return context_text.strip()
     
-    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
+    def format_item(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将 2WikiMultihopQA 的原始样本转换为 BaseDatasetLoader 要求的格式。
+        """
+        _id = sample['_id']
+        query = sample['question']
+        # 2Wiki 的 answer 通常是一个字符串，转为 list
+        answers = [sample['answer']] if 'answer' in sample else []
 
-        context = sample['context']
-        supporting_facts = sample['supporting_facts']
+        # 构建 supporting facts 的查找集合 {(title, sent_idx)} 用于快速匹配
+        # 原始数据中 supporting_facts 格式为 [[title, sent_idx], ...]
+        sp_set = set()
+        if 'supporting_facts' in sample:
+            for sp in sample['supporting_facts']:
+                # sp[0] 是 title, sp[1] 是句子在段落中的索引
+                sp_set.add((sp[0], sp[1]))
 
-        context_dict = {}
-        for paragraph in context:
-            title = paragraph[0]
-            context_dict[title] = paragraph[1]
+        corpus = []
+        # 原始数据中 context 格式为 [[title, [sent1, sent2, ...]], ...]
+        raw_context = sample.get('context', [])
         
-        sfs = []
+        for paragraph in raw_context:
+            title = paragraph[0]
+            sentences = paragraph[1] # 2Wiki 的句子已经是分好句的列表
 
-        for sp in supporting_facts:
-            title = sp[0]
-            sent_idx = sp[1]
-            sfs.append(context_dict[title][sent_idx])
+            # 提取当前段落中的 supporting facts
+            current_facts = []
+            for idx, sent in enumerate(sentences):
+                if (title, idx) in sp_set:
+                    current_facts.append(sent)
 
-        return sfs
+            corpus.append({
+                "title": title,
+                "sentences": sentences,
+                "facts": current_facts if len(current_facts) > 0 else None
+            })
+
+        return {
+            "id": _id,
+            "query": query,
+            "answers": answers,
+            "corpus": corpus,
+            "extra": {
+                "type": sample.get('type', None),
+                "level": sample.get('level', None)
+            }
+        }
         
 
 if __name__ == "__main__":
-    loader = TwoWikiMultihopQA(reload=False, split='dev')
-    dataset = loader.dataset_list
-    print(f"数据集样本数: {len(loader.dataset)}")
-    print(dataset[0])
+    import json
+    loader = TwoWikiMultihopQA(reload=True, split='dev')
+    dataset = loader.dataset
+    dataset_list = loader.dataset_list
+    print(json.dumps(dataset_list[0], indent=4))
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal
+from typing import Literal
 import random
 
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
@@ -13,30 +13,125 @@ from copypastelrm.datasets.MuSiQue import MuSiQue
 
 random.seed(42)
 
+
 class CopyPaste(BaseDatasetLoader):
-    def __init__(self, max_samples: int = -1, split: Literal['train', 'test'] = 'test', reload: bool = False):
+    def __init__(
+        self,
+        max_samples: int = -1,
+        split: Literal["train", "test"] = "test",
+        reload: bool = False,
+        distractor_docs: int = 1,
+        unanswerable: bool = False,  # 是否不包含gold context
+    ):
 
         self.split = split
 
-
-        if split == 'train':
-            self.hotpotqa = HotpotQA(max_samples=max_samples, split='train', reload=reload)
-            self.qasper = Qasper(max_samples=max_samples, split='train', reload=reload)
-            self.multirc = MultiRC(max_samples=max_samples, split='train', reload=reload)
-            self.popqa = PopQA(max_samples=max_samples, split='train', reload=reload)
-            self.pubmedqa = PubMedQA(max_samples=max_samples, dataset_name='pqa_artificial', reload=reload)
-            self.twoWikiqa = TwoWikiMultihopQA(max_samples=max_samples, split='dev', reload=reload)
-            self.musique = MuSiQue(max_samples=max_samples, split='train', reload=reload)
+        if split == "train":
+            self.hotpotqa = HotpotQA(
+                max_samples=max_samples,
+                split="train",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.qasper = Qasper(
+                max_samples=max_samples,
+                split="train",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.multirc = MultiRC(
+                max_samples=max_samples,
+                split="train",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.popqa = PopQA(
+                max_samples=max_samples,
+                split="train",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.pubmedqa = PubMedQA(
+                max_samples=max_samples,
+                dataset_name="pqa_artificial",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.twoWikiqa = TwoWikiMultihopQA(
+                max_samples=max_samples,
+                split="dev",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.musique = MuSiQue(
+                max_samples=max_samples,
+                split="train",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
         else:
-            self.faitheval = FaithEval(max_samples=max_samples, reload=reload) # FaithEval只作为测试集
-            self.hotpotqa = HotpotQA(max_samples=max_samples, split='validation', reload=reload)    
-            self.qasper = Qasper(max_samples=max_samples, split='test', reload=reload)        
-            self.multirc = MultiRC(max_samples=max_samples, split='dev', reload=reload)     
-            self.popqa = PopQA(max_samples=max_samples, split='test', reload=reload)
-            self.pubmedqa = PubMedQA(max_samples=max_samples, dataset_name='pqa_labeled', reload=reload)
-            self.twoWikiqa = TwoWikiMultihopQA(max_samples=max_samples, split='dev', reload=reload)
-            self.musique = MuSiQue(max_samples=max_samples, split='validation', reload=reload)
-            
+            self.faitheval = FaithEval(
+                max_samples=max_samples,
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )  # FaithEval只作为测试集
+            self.hotpotqa = HotpotQA(
+                max_samples=max_samples,
+                split="validation",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.qasper = Qasper(
+                max_samples=max_samples,
+                split="test",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.multirc = MultiRC(
+                max_samples=max_samples,
+                split="dev",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.popqa = PopQA(
+                max_samples=max_samples,
+                split="test",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.pubmedqa = PubMedQA(
+                max_samples=max_samples,
+                dataset_name="pqa_labeled",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.twoWikiqa = TwoWikiMultihopQA(
+                max_samples=max_samples,
+                split="dev",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
+            self.musique = MuSiQue(
+                max_samples=max_samples,
+                split="validation",
+                reload=reload,
+                distractor_docs=distractor_docs,
+                unanswerable=unanswerable,
+            )
 
         self.max_samples = max_samples
 
@@ -46,12 +141,12 @@ class CopyPaste(BaseDatasetLoader):
             offline=True,
             reload=reload,
             format=False,
-            max_samples=max_samples
+            max_samples=max_samples,
         )
-    
+
     def download_dataset(self):
         dataset = []
-        if self.split != 'train':
+        if self.split != "train":
             dataset.extend(self.faitheval.dataset_list)
 
         dataset.extend(self.hotpotqa.dataset_list)
@@ -62,7 +157,7 @@ class CopyPaste(BaseDatasetLoader):
         dataset.extend(self.twoWikiqa.dataset_list)
         dataset.extend(self.musique.dataset_list)
 
-        if self.split != 'train':
+        if self.split != "train":
             print(f"FaithEval样本数: {len(self.faitheval.dataset_list)}")
 
         print(f"HotpotQA样本数: {len(self.hotpotqa.dataset_list)}")
@@ -76,7 +171,7 @@ class CopyPaste(BaseDatasetLoader):
 
 
 if __name__ == "__main__":
-    loader = CopyPaste(max_samples=-1, reload=True, split='test')
+    loader = CopyPaste(max_samples=-1, reload=True, split="test")
     dataset = loader.dataset_list
     print(f"数据集样本数: {len(loader.dataset)}")
     print(dataset[0])

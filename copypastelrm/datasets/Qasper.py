@@ -12,6 +12,8 @@ class Qasper(BaseDatasetLoader):
         split: Literal["train", "validation", "test"] = "test",
         reload: bool = False,
         max_samples: int = -1,
+        distractor_docs: int = 8,
+        unanswerable: bool = False,
     ):
         super().__init__(
             dataset_path="allenai/qasper",
@@ -19,6 +21,8 @@ class Qasper(BaseDatasetLoader):
             offline=True,
             reload=reload,
             max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,  # 是否不包含gold context
         )
 
     def download_dataset(self) -> List[Dict[str, Any]]:
@@ -39,11 +43,10 @@ class Qasper(BaseDatasetLoader):
         dataset = []
 
         def contruct_context(paper: dict):
-            title = paper["title"]
             abstract = paper["abstract"]
             full_text = paper["full_text"]
             figures_and_tables = paper["figures_and_tables"]
-            context = "# " + title + "\n" + abstract + "\n"
+            context = abstract + "\n"
             for sec_name, para in zip(
                 full_text["section_name"], full_text["paragraphs"]
             ):
@@ -55,6 +58,7 @@ class Qasper(BaseDatasetLoader):
 
         for paper in origin_dataset:
             context = contruct_context(paper)
+            title = paper["title"]
             paper_id = paper["id"]
             qas = paper["qas"]
             questions = qas["question"]
@@ -64,32 +68,48 @@ class Qasper(BaseDatasetLoader):
                 questions, question_ids, answers
             ):
                 sample_id = f"{paper_id}_{question_id}"
-                answer = []
+                answers = []
                 supporting_facts = []
                 for ans_dict in answer_dict["answer"]:
                     if not ans_dict["unanswerable"]:
-                        answer += ans_dict["extractive_spans"] + [
+                        answers += ans_dict["extractive_spans"] + [
                             ans_dict["free_form_answer"]
                         ]
                         supporting_facts += ans_dict["highlighted_evidence"]
 
-                answer = [s for s in answer if s.strip()]
-                if len(answer) < 1 or len(supporting_facts) < 1:
+                answers = [s for s in answers if s.strip()]
+                if len(answers) < 1 or len(supporting_facts) < 1:
                     continue
 
                 dataset.append(
                     {
                         "id": sample_id,
                         "query": question,
+                        "title": title,
                         "context": context,
                         "supporting_facts": supporting_facts,
-                        "answer": [s for s in answer if s.strip()],
+                        "answers": [s for s in answers if s.strip()],
                     }
                 )
         return dataset
 
+    def format_item(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+
+        return {
+            "id": sample["id"],
+            "query": sample["query"],
+            "answers": sample["answers"],
+            "corpus": {
+                "title": sample["title"],
+                "sentences": self.nlp.split_sentences_spacy(self.sample["context"]),
+                "facts": sample["supporting_facts"],
+            },
+        }
+
 
 if __name__ == "__main__":
-    loader = Qasper(reload=True, split='validation')
+    import json
+    loader = Qasper(reload=True, split="validation")
     dataset = loader.dataset
-    print(loader.get_length())
+    dataset_list = loader.dataset_list
+    print(json.dumps(dataset_list[0], indent=4))

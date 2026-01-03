@@ -1,11 +1,21 @@
 from typing import Any, Dict, List, Literal
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
+import json
 
 
 class HotpotQA(BaseDatasetLoader):
     """https://huggingface.co/datasets/hotpotqa/hotpot_qa"""
 
-    def __init__(self, dataset_path="hotpotqa/hotpot_qa", dataset_name="distractor", split: Literal["train", "validation"] = "validation", reload: str = False, max_samples: int = -1):
+    def __init__(
+        self,
+        dataset_path="hotpotqa/hotpot_qa",
+        dataset_name="distractor",
+        split: Literal["train", "validation"] = "validation",
+        reload: str = False,
+        max_samples: int = -1,
+        distractor_docs: int = 8,
+        unanswerable: bool = False,  # 是否不包含gold context
+    ):
         super().__init__(
             dataset_path=dataset_path,
             dataset_name=dataset_name,
@@ -13,9 +23,11 @@ class HotpotQA(BaseDatasetLoader):
             offline=True,
             reload=reload,
             max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,
         )
 
-    def format_context(self, sample: Dict[str, Any]) -> str:
+    def format_item(self, sample: Dict[str, Any]) -> str:
         """
         格式化上下文信息
 
@@ -26,32 +38,42 @@ class HotpotQA(BaseDatasetLoader):
             str: 格式化后的上下文文本
         """
         context = sample["context"]
-        context_text = ""
-        for title, sentences in zip(context["title"], context["sentences"]):
-            context_text += f"{title}. " + "".join(sentences) + "\n"
-        return context_text
-
-    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
-        """格式化支持事实"""
         supporting_facts = sample["supporting_facts"]
-        context = sample["context"]
-        sfs = []
-        for title, sent_id in zip(
-            supporting_facts["title"], supporting_facts["sent_id"]
-        ):
-            try:
-                sentences_idx = context["title"].index(title)
-                sf = context["sentences"][sentences_idx][sent_id]
-                sfs.append(sf.strip())
-            except:
-                print(
-                    f"Warning in formatting supporting facts: title={title}, sent_id={sent_id}"
-                )
-        return sfs
+        corpus = []
+
+        _id = sample["id"]
+        query = sample["question"]
+        answers = [sample["answer"]]
+        type = sample["type"]
+        level = sample["level"]
+
+        for title, sentences in zip(context["title"], context["sentences"]):
+            facts = []
+            for fact_title, fact_sent_id in zip(
+                supporting_facts["title"], supporting_facts["sent_id"]
+            ):
+                if title == fact_title:
+                    if fact_sent_id < len(sentences):
+                        facts.append(sentences[fact_sent_id])
+            corpus.append(
+                {
+                    "title": title if title else "unknown title",
+                    "sentences": sentences,
+                    "facts": facts if len(facts) > 0 else None,
+                }
+            )
+
+        return {
+            "id": _id,
+            "query": query,
+            "answers": [answers],
+            "corpus": corpus,
+            "extra": {"type": type, "level": level},
+        }
 
 
 if __name__ == "__main__":
-    loader = HotpotQA(reload=True,split='validation')
+    loader = HotpotQA(reload=True, split="validation", unanswerable=True)
     dataset = loader.dataset
     dataset_list = loader.dataset_list
-    print(dataset_list[0])
+    print(json.dumps(dataset_list[0], indent=4))

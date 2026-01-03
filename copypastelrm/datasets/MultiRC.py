@@ -12,6 +12,8 @@ class MultiRC(BaseDatasetLoader):
         split: Literal["train", "dev"] = "dev",
         reload: bool = False,
         max_samples: int = -1,
+        distractor_docs: int = 8,
+        unanswerable: bool = False
     ):
         super().__init__(
             dataset_path=dataset_path + '/' + split + '.json',
@@ -19,20 +21,20 @@ class MultiRC(BaseDatasetLoader):
             offline=True,
             reload=reload,
             max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,  # 是否不包含gold context
         )
 
     def extract_sentences_with_regex(self, input_text: str) -> dict:
-
-        # 1. 定义用于匹配和分割句子的模式：
-        #    这里使用 <br> 标签（或其变体 <br/>）作为分割点。
+        """
+        MultiRC 特有的清洗逻辑：
+        根据 <br> 分句，并去除 <b>Sent N:</b> 标签
+        返回字典: {'1': '句子内容', '2': '句子内容'}
+        """
+        # 1. 定义用于匹配和分割句子的模式
         sentences = re.split(r"<br\s*/?>", input_text, flags=re.IGNORECASE)
 
-        # 2. 定义用于清理每个句子的模式：
-        #    这个模式匹配并捕获 (Sent N: ) 及其周围的 HTML 标签：
-        #    ^.*?<b>Sent\s+\d+:\s*<\/b>\s*
-        #    - ^: 匹配字符串的开头
-        #    - .*: 匹配开头的任意字符（用于处理潜在的空白或换行符）
-        #    - <b>Sent\s+\d+:\s*<\/b>: 匹配例如 <b>Sent 1: </b> 这样的标签结构
+        # 2. 定义用于清理每个句子的模式
         clean_pattern = re.compile(
             r"^.*?<b>Sent\s+\d+:\s*<\/b>\s*", flags=re.IGNORECASE | re.DOTALL
         )
@@ -41,17 +43,12 @@ class MultiRC(BaseDatasetLoader):
         sentence_number = 1
 
         for sentence in sentences:
-            # 清除首尾空白
             stripped_sentence = sentence.strip()
 
             if not stripped_sentence:
-                # 跳过空行
                 continue
 
-            # 使用正则表达式清理句子开头的编号和标签
             cleaned_content = re.sub(clean_pattern, "", stripped_sentence)
-
-            # 再次清除首尾空白，以防清理后留下多余空格
             final_content = cleaned_content.strip()
 
             if final_content:
@@ -61,68 +58,98 @@ class MultiRC(BaseDatasetLoader):
         return output_dict
 
     def download_dataset(self):
-
+        """
+        读取原始 JSON，并将 MultiRC 的结构（1个段落 -> N个问题）
+        扁平化为 List[Sample]（1个问题 -> 1个段落）
+        """
         dataset = []
 
         with open(self.dataset_path, "r") as f:
             data = json.load(f)["data"]
 
         for item in data:
-            context = item["paragraph"]["text"]
-            context_dict = self.extract_sentences_with_regex(context)
+            # 清洗段落文本
+            raw_context_text = item["paragraph"]["text"]
+            context_dict = self.extract_sentences_with_regex(raw_context_text)
+            
             questions = item["paragraph"]["questions"]
-            id = item["id"]
+            doc_id = item["id"]  # 通常是文件名
+
             for q_item in questions:
                 q_idx = q_item["idx"]
-                sub_id = f"{id}_{q_idx}"
+                # 构造唯一 ID
+                sub_id = f"{doc_id}_{q_idx}"
                 question = q_item["question"]
-                supporting_facts = q_item["sentences_used"]
+                supporting_facts_indices = q_item["sentences_used"]
+                
+                # 提取答案
                 answer_item = q_item["answers"]
                 answers = []
                 for a_item in answer_item:
                     if a_item["isAnswer"]:
                         answers.append(a_item["text"])
 
+                # 注意：这里 context 还是字典，supporting_facts 还是索引列表('1', '2'...)
+                # 具体的文本转换将在 format_item 中进行
                 dataset.append(
                     {
                         "id": sub_id,
                         "question": question,
                         "answers": answers,
                         "context": context_dict,
-                        "supporting_facts": [str(sf + 1) for sf in supporting_facts],
+                        "supporting_facts": [str(sf + 1) for sf in supporting_facts_indices],
+                        "doc_id": doc_id # 保留用于 Title
                     }
                 )
 
         return dataset
 
-    def format_answer(self, sample):
-        return sample["answers"]
+    def format_item(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将 download_dataset 返回的中间格式转换为 BaseDatasetLoader 标准格式
+        """
+        _id = sample['id']
+        query = sample['question']
+        answers = sample['answers']
+        
+        # 原始 context 是 {'1': 'sent1', '2': 'sent2'}
+        # 转换为 BaseDatasetLoader 要求的 sentences 列表
+        context_dict = sample['context']
+        
+        # 确保按 key 顺序（1, 2, 3...）排列句子
+        # 虽然 Python 3.7+ 字典有序，但为了保险起见，这里可以显式排序或者直接利用 extraction 时的插入顺序
+        # 这里直接取 values，因为 extraction 是按顺序插入的
+        sentences = list(context_dict.values())
+        
+        # 提取 Supporting Facts 的文本
+        # sample['supporting_facts'] 包含的是 key (如 "1", "5")
+        facts = []
+        for sf_key in sample['supporting_facts']:
+            if sf_key in context_dict:
+                facts.append(context_dict[sf_key])
+        
+        # 构建 corpus
+        # MultiRC 是单文档阅读理解，所以 corpus 只有一个条目
+        corpus_item = {
+            "title": sample.get('doc_id', str(_id)), # 使用 doc_id 作为标题
+            "sentences": sentences,
+            "facts": facts if len(facts) > 0 else None
+        }
 
-    def format_context(self, sample: Dict[str, Any]) -> str:
-        context_text = ""
-        context = sample["context"]
-
-        for _, sent in context.items():
-            context_text += f"\n{sent}"
-        return context_text.strip()
-
-    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
-
-        context = sample["context"]
-        supporting_facts = sample["supporting_facts"]
-
-        sfs = []
-
-        for sf_idx in supporting_facts:
-            sfs.append(context[sf_idx])
-
-        return sfs
-
+        return {
+            "id": _id,
+            "query": query,
+            "answers": answers,
+            "corpus": [corpus_item],
+            "extra": {} 
+        }
 
 if __name__ == "__main__":
+    # 强制 reload 以更新缓存格式
     loader = MultiRC(reload=True)
     dataset = loader.dataset
     print(f"数据集样本数: {len(loader.dataset)}")
-    print(
-        loader.get_sample("News/CNN/cnn-3b5bbf3ba31e4775140f05a8b59db55b22ee3e63.txt_0")
-    )
+    
+    # 随机采样打印
+    if len(loader.dataset_list) > 0:
+        loader.random_sample()

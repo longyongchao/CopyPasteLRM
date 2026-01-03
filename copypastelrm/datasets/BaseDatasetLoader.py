@@ -5,6 +5,9 @@ from tqdm import tqdm
 import os
 import json
 import random
+from copypastelrm.utils.tokenizer import ChatTokenCounter
+from copypastelrm.utils.bm25 import BM25Retriever
+from copypastelrm.utils.dataset import NLPTool
 
 
 class BaseDatasetLoader(ABC):
@@ -23,7 +26,10 @@ class BaseDatasetLoader(ABC):
         format: bool = True,
         max_samples: int = -1,
         filter_empty_answer: bool = True,
-        shuffle: bool = True
+        distractor_docs: int = 8,
+        unanswerable: bool = False, # 是否不包含gold context
+        # max_input_tokens: int = 1024 * 24,
+        # tokenizer_path: str = 'Qwen/Qwen2.5-3B-Instruct',
     ):
         """
         初始化数据集加载器
@@ -34,6 +40,7 @@ class BaseDatasetLoader(ABC):
             split: 数据集分割（默认为 validation）
             offline: 是否离线模式
         """
+        self.nlp = NLPTool()
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
         self.split = split
@@ -52,9 +59,15 @@ class BaseDatasetLoader(ABC):
             if not self.cache_path.endswith(".jsonl"):
                 raise ValueError("cache_path must end with .jsonl")
 
-        self.dataset_list = None
+        self.unanswerable = unanswerable
 
-        self.dataset = self.get_dataset()
+        self.dataset_list = None
+        self.distractor_docs = distractor_docs
+
+        self.origin_dataset = self.get_dataset()
+        self.corpus = self.construct_corpus(self.origin_dataset)
+        self.bm25 = BM25Retriever(self.corpus)
+        self.dataset = self.format_dataset(self.origin_dataset)
 
         if max_samples > 0 and max_samples < self.get_length():
             self.dataset_list = random.sample(self.dataset_list, max_samples)
@@ -112,12 +125,24 @@ class BaseDatasetLoader(ABC):
                     dataset_dict[sample["id"]] = sample
                 return dataset_dict
 
-        dataset = self.download_dataset()
+        origin_dataset = self.download_dataset()
+        return origin_dataset
+    
+    def format_dataset(self, origin_dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        格式化数据集
+
+        Args:
+            dataset: 原始数据集
+
+        Returns:
+            Dict[str, Any]: 格式化后的数据集
+        """
 
         formatted_dataset_dict = {}
         formatted_dataset_list = []
 
-        iterator = tqdm(dataset, desc="Formatting dataset", unit="sample")
+        iterator = tqdm(origin_dataset, desc="Formatting dataset", unit="sample")
 
         for sample in iterator:
             if self.format:
@@ -150,7 +175,7 @@ class BaseDatasetLoader(ABC):
         return formatted_dataset_dict
     
     def get_non_empty_answer(self, data: list) -> list:
-        return [sample for sample in data if len(sample["answer"]) > 0 and sample["answer"][0].strip() != ""]
+        return [sample for sample in data if len(sample["answers"]) > 0 and sample["answers"][0].strip() != ""]
 
     def format_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -162,100 +187,126 @@ class BaseDatasetLoader(ABC):
         Returns:
             Dict[str, Any]: 格式化后的数据样本
         """
+        item = self.format_item(sample)
+        context, facts = self.construct_context_and_facts(item)
+
         formatted_sample = {
-            "id": self.format_id(sample),
-            "query": self.format_query(sample),
-            "context": self.format_context(sample),
-            "answer": self.format_answer(sample),
-            "sfs": self.format_supporting_facts(sample),
+            "id": item['id'],
+            "query": item['query'],
+            "answers": item['answers'],
+            "context": "\n\n".join(context),
+            "facts": facts,
+            "corpus": item['corpus'],
+            "extra": item['extra'],
             "dataset": self.dataset_path if 'dataset' not in sample else sample['dataset'],
         }
 
         return formatted_sample
 
-    def format_id(self, sample: Dict[str, Any]) -> str:
+
+    # 子类必须实现的函数: format_corpus
+    @abstractmethod
+    def format_item(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
-        格式化样本 ID
+        格式化语料库，必须返回数据结构
+
+        {
+            "id": str,
+            "query": str,
+            "answers": List[str],
+            "corpus": [
+                {
+                    "title": Optinal[str, None],
+                    "sentences": List[str], # 必须经过分句
+                    "facts": Optional[List[str], None], # 如果没有，则返回 None
+                }
+            ],
+            "extra": Optional[Dict[str, Any], None]
+        }
 
         Args:
             sample: 原始数据样本
 
         Returns:
-            str: 样本 ID
+            str: 上下文文本
         """
-        if "id" in sample:
-            return sample["id"]
-        else:
-            raise NotImplementedError("子类必须实现 format_id 方法")
+        raise NotImplementedError("子类必须实现 format_corpus 方法")
 
-    def format_query(self, sample: Dict[str, Any]) -> str:
+    @staticmethod
+    def string_context(title: str, sentences: List[str]) -> str:
+        return "###" + title.upper() + "\n" + " ".join(sentences)
+    
+    @staticmethod
+    def string_sub_id(id: str, idx: int) -> str:
+        return id + "___" + str(idx)
+
+    def construct_corpus(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        global_corpus = []
+        for sample in data:
+            formated_item = self.format_item(sample) 
+            _id = formated_item["id"]
+            corpus = formated_item['corpus']
+            for idx, context in enumerate(corpus):
+                text = self.string_context(context['title'], context['sentences'])
+                global_corpus.append({
+                    "id": self.string_sub_id(_id, idx),
+                    "text": text,
+                })
+        
+        # 针对text进行去重，保留corpus的结构，但是如果text的内容重复了，则保留第一个，后面的均剔除
+        global_corpus = list({item['text']: item for item in global_corpus}.values())
+
+        return global_corpus
+
+    
+    def construct_context_and_facts(self, format_item: Dict[str, Any]) -> tuple[str, str, str, str, List[str]]:
         """
-        格式化查询字段
-
-        Args:
-            sample: 原始数据样本
-
-        Returns:
-            str: 查询文本
-        """
-        if "question" in sample:
-            return sample["question"]
-        elif "query" in sample:
-            return sample["query"]
-        else:
-            raise NotImplementedError("子类必须实现 format_query 方法")
-
-    def format_context(self, sample: Dict[str, Any]) -> str:
-        """
-        标准的上下文格式化方法（适用于包含 title 和 sentences 的上下文）
-
         Args:
             context: 包含 title 和 sentences 的字典
 
         Returns:
-            str: 格式化后的上下文文本
+
         """
-        if "context" in sample and isinstance(sample["context"], str):
-            return sample["context"]
+
+        _id = format_item["id"]
+        query = format_item['query']
+        single_corpus = format_item['corpus']
+
+        gold_context = []
+        gold_ctx_ids = []
+        facts = []
+        for idx, item in enumerate(single_corpus):
+            if item['facts']:
+                gold_context.append(self.string_context(item['title'], item['sentences']))
+                gold_ctx_ids.append(self.string_sub_id(_id, idx))
+                facts.extend(item['facts'])
+        
+        distractor_context = []
+        
+        if self.distractor_docs > 0:
+            candidate_distractor_context = self.bm25.retrieve(query, k=self.distractor_docs + len(gold_context) + 10)
+
+            distractor_count = 0
+
+            for item in candidate_distractor_context:
+                if item['id'] not in gold_ctx_ids and item['text'] not in gold_context:
+                    distractor_context.append(item['text'])
+                    distractor_count += 1
+                    if distractor_count >= self.distractor_docs:
+                        break
+        
+        # 合并 gold context 和 distractor context，并且打乱
+        if self.unanswerable:
+            context = distractor_context
+            facts = []
         else:
-            raise NotImplementedError("子类必须实现 format_context 方法")
+            context = gold_context + distractor_context
 
-    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
-        """
-        段落式的上下文格式化方法（适用于包含段落列表的上下文）
+        random.seed(42)
+        random.shuffle(context)
 
-        Args:
-            context: 包含段落的列表，每个段落包含 title 和 paragraph_text
+        return context, facts
 
-        Returns:
-            str: 格式化后的上下文文本
-        """
-        if "supporting_facts" in sample:
-            sfs = sample["supporting_facts"]
-            if isinstance(sfs, list):
-                return sample["supporting_facts"]
-        else:
-            raise NotImplementedError("子类必须实现 format_supporting_facts 方法")
-
-    def format_answer(self, sample: Dict[str, Any]) -> List[str]:
-        """
-        格式化答案字段
-
-        Args:
-            sample: 原始数据样本
-
-        Returns:
-            str: 格式化后的答案文本
-        """
-        if "answer" in sample:
-            if isinstance(sample["answer"], str):
-                return [sample["answer"]]
-            elif isinstance(sample["answer"], list):
-                return sample["answer"]
-        elif "answers" in sample and isinstance(sample["answers"], list):
-            return sample["answers"]
-        else:
-            raise NotImplementedError("子类必须实现 format_answer 方法")
 
     def get_length(self) -> int:
         """
@@ -297,7 +348,7 @@ class BaseDatasetLoader(ABC):
         print("-" * 20)
         print(f"Context: {sample['context']}")
         print("-" * 20)
-        print(f"Answer: {sample['answer']}")
+        print(f"Answers: {sample['answers']}")
         print("-" * 20)
-        if "sfs" in sample:
-            print(f"Supporting Facts: {sample['sfs']}")
+        if "facts" in sample:
+            print(f"Supporting Facts: {sample['facts']}")

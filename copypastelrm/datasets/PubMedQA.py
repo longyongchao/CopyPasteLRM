@@ -5,45 +5,59 @@ from typing import Literal
 
 class PubMedQA(BaseDatasetLoader):
     """https://huggingface.co/datasets/qiaojin/PubMedQA"""
-        
-    def __init__(self, dataset_name: Literal["pqa_labeled", "pqa_unlabeled", "pqa_artificial"] = "pqa_labeled",  reload: bool = False, max_samples: int = -1):
+
+    def __init__(
+        self,
+        dataset_name: Literal[
+            "pqa_labeled", "pqa_unlabeled", "pqa_artificial"
+        ] = "pqa_labeled",
+        reload: bool = False,
+        max_samples: int = -1,
+        distractor_docs: int = 8,
+        unanswerable: bool = False,
+    ):
         super().__init__(
             dataset_path="qiaojin/PubMedQA",
             dataset_name=dataset_name,
             split="train",
             offline=True,
             reload=reload,
-            max_samples=max_samples
+            max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,  # 是否不包含gold context
         )
-    
-    def format_id(self, sample):
-        return str(sample['pubid'])
-    
-    def format_answer(self, sample: Dict[str, Any]) -> str:
-        return [sample['final_decision']]
-    
-    def format_context(self, sample: Dict[str, Any]) -> str:
-        """
-        格式化上下文信息
-        
-        Args:
-            sample: 包含 title 和 sentences 的字典
-            
-        Returns:
-            str: 格式化后的上下文文本
-        """
+
+    def format_item(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        _id = str(sample["pubid"])
+        query = sample["question"]
+        answers = [sample["final_decision"]]
+
         context = sample["context"]
-        contexts = context['contexts']
-        labels = context['labels']
-        context_text = ""
-        for label, ctx in zip(labels, contexts):
-            context_text += f"\n{label}. " + ctx
-        return context_text
-    
-    def format_supporting_facts(self, sample: Dict[str, Any]) -> List[str]:
-        return []
+
+        sentences = []
+
+        for ctx in context["contexts"]:
+            sentences.extend(self.nlp.split_sentences_spacy(ctx))
+
+        corpus = [{"title": "Abstract", "sentences": sentences, "facts": sentences}]
+
+        return {
+            "id": _id,
+            "query": query,
+            "answers": answers,
+            "corpus": corpus,
+            "extra": {
+                "long_answer_sents": self.nlp.split_sentences_spacy(
+                    sample["long_answer"]
+                ),
+                "options": ["yes", "no", "maybe", "unknown"],
+            },
+        }
 
 if __name__ == "__main__":
-    loader = PubMedQA(reload=True, dataset_name='pqa_labeled')
+    import json
+
+    loader = PubMedQA(reload=True, dataset_name="pqa_labeled")
     dataset = loader.dataset
-    print(f"数据集样本数: {len(loader.dataset)}")
+    dataset_list = loader.dataset_list
+    print(json.dumps(dataset_list[0], indent=4))
