@@ -1,7 +1,7 @@
 from typing import Dict, Any, Literal
 from string import Template
 
-from copypastelrm.datasets import load, AvailebleDatasets
+from copypastelrm.datasets import load, AvailebleDataset
 
 
 TEMPLATE = {
@@ -111,18 +111,18 @@ def create_prompt(
     return full_prompt.strip()
 
 
-def main():
-    # 示例用法
-    dataset_loader = load(AvailebleDatasets.TWOWIKI)
-    sample = dataset_loader.get_sample()
+# def main():
+#     # 示例用法
+#     dataset_loader = load(AvailebleDatasets.TWOWIKI)
+#     sample = dataset_loader.get_sample()
 
-    question = sample["query"]
-    context = sample["context"]
-    prompt_type = "reasoning_with_copypaste_old"
-    prompt = create_prompt(question, context, prompt_type)
+#     question = sample["query"]
+#     context = sample["context"]
+#     prompt_type = "reasoning_with_copypaste_old"
+#     prompt = create_prompt(question, context, prompt_type)
 
-    print(prompt)
+#     print(prompt)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

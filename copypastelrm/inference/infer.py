@@ -1,20 +1,11 @@
 """
-HotpotQA 推理脚本（多线程版本）
+推理脚本（支持断点续传 & 原子写入）
 
-该脚本用于在 HotpotQA 数据集上进行模型推理，并生成符合评估格式的结果文件。
-
-功能：
-1. 从 HuggingFace 加载 HotpotQA 数据集的 distractor 子集 validation split
-2. 使用多线程并行调用 vLLM 部署的模型进行推理，显著提升推理速度
-3. 解析模型输出，提取答案和支持事实
-4. 保存为 eval/hotpotqa.py 所需的格式
-5. 支持中间结果保存，防止意外中断导致数据丢失
-
-使用方法：
-python inference/infer.py --server-url https://api.siliconflow.cn/v1 --model-name Qwen/Qwen2.5-14B-Instruct  --num-threads 2 --prompt-type direct --max-samples 10
-
-新增参数：
---num-threads: 并行推理的线程数量，默认为 4
+修改日志：
+1. 移除文件名时间戳，固定文件路径以便续传。
+2. 新增断点续传功能：自动检测是否存在结果文件，加载已有结果并跳过已推理样本。
+3. 新增 --overwrite 参数：强制从头开始。
+4. 保持原子写入和动态保存策略。
 """
 
 import argparse
@@ -22,102 +13,68 @@ import json
 import os
 import threading
 import time
+import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, Tuple
 import random
 
-from openai import OpenAI
 from tqdm import tqdm
 
 from copypastelrm.prompt.prompt import create_prompt
-from copypastelrm.datasets.HotpotQA import HotpotQA
-from copypastelrm.datasets.PubMedQA import PubMedQA
-from copypastelrm.datasets.MultiRC import MultiRC
-from copypastelrm.datasets.MuSiQue import MuSiQue
-from copypastelrm.datasets.TwoWikiMultiHopQA import TwoWikiMultihopQA
-from copypastelrm.datasets.PopQA import PopQA
-from copypastelrm.datasets.FaithEval import FaithEval
-from copypastelrm.datasets.Qasper import Qasper
-from copypastelrm.datasets.CopyPaste import CopyPaste
-
-
+from copypastelrm.datasets import load, AvailableDataset
 from copypastelrm.utils.git import get_git_commit_id
+from copypastelrm.utils.llm_server import LLMServer
 
 
-def call_model(
-    client: OpenAI,
-    model_name: str,
-    user_prompt: str,
-    system_prompt: str = 'You are a helpful assistant.',
-    max_tokens: int = 4096,
-    temperature: float = 0.7,
-    enable_thinking: bool = False,
-) -> str:
-    """
-    调用模型进行推理
+# --- 辅助类：安全保存器 (保持不变) ---
+class SafeSaver:
+    def __init__(self, output_file: str, save_interval_seconds: int = 60):
+        self.output_file = output_file
+        self.save_interval_seconds = save_interval_seconds
+        self.last_save_time = time.time()
+        self.lock = threading.Lock()
+        
+    def save(self, data: Dict[str, Any], force: bool = False):
+        """保存数据，支持原子写入和时间间隔控制"""
+        current_time = time.time()
+        if not force and (current_time - self.last_save_time < self.save_interval_seconds):
+            return
 
-    Args:
-        client: OpenAI 客户端
-        model_name: 模型名称
-        prompt: 输入提示
-        max_tokens: 最大生成 token 数
-
-    Returns:
-        str: 模型生成的回答
-    """
-    try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_tokens=max_tokens,
-            temperature=temperature,
-            extra_body={
-                "chat_template_kwargs": {"enable_thinking": enable_thinking},
-            },
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"模型调用失败: {e}")
-        return ""
+        with self.lock:
+            temp_file = f"{self.output_file}.tmp"
+            try:
+                os.makedirs(os.path.dirname(self.output_file), exist_ok=True)
+                with open(temp_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                shutil.move(temp_file, self.output_file)
+                self.last_save_time = current_time
+            except Exception as e:
+                print(f"\n[Warning] 自动保存失败: {e}")
 
 
 def process_single_sample(
     sample: Dict[str, Any],
-    client: OpenAI,
+    llm_server: LLMServer,
     model_name: str,
     prompt_type: str,
     temperature: float,
     enable_thinking: bool = False,
 ) -> Tuple[str, str]:
-    """
-    处理单个样本的推理任务
-
-    Args:
-        sample: 数据样本
-        client: OpenAI 客户端
-        model_name: 模型名称
-
-    Returns:
-        Tuple[str, str]: (样本ID, 预测响应)
-    """
+    """处理单个样本的推理任务"""
     sample_id = sample["id"]
 
     try:
-        # 格式化上下文和创建提示
-        system_prompt, user_prompt = create_prompt(sample["query"], sample["context"], prompt_type)
+        system_prompt, user_prompt = create_prompt(
+            sample["query"], sample["context"], prompt_type
+        )
 
-        # 调用模型
-        predict = call_model(
-            client,
-            model_name,
-            system_prompt=system_prompt,
+        predict = llm_server.call(
+            model_name=model_name,
             user_prompt=user_prompt,
-            max_tokens=4096,
+            system_prompt=system_prompt,
             temperature=temperature,
             enable_thinking=enable_thinking,
+            max_retries=3
         )
 
         if not predict:
@@ -126,28 +83,7 @@ def process_single_sample(
         return sample_id, predict
 
     except Exception as e:
-        print(f"处理样本 {sample_id} 时发生错误: {e}")
-        return sample_id, e
-
-
-def save_intermediate_results(
-    results: Dict[str, Any], output_file: str, processed_count: int, total_count: int
-):
-    """
-    保存中间结果
-
-    Args:
-        results: 当前结果字典
-        output_file: 输出文件路径
-        processed_count: 已处理样本数
-        total_count: 总样本数
-    """
-    # 创建中间结果文件名
-    # 确保输出目录存在
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
+        return sample_id, f"ERROR: {str(e)}"
 
 
 def run_inference(
@@ -161,219 +97,182 @@ def run_inference(
     api_key: str = "sk-wingchiu",
     temperature: float = 0.7,
     enable_thinking: bool = False,
-    split: bool = 'train',
+    split: str = "test",
+    distractor_docs: int = 0,
+    unanswerable: bool = False,
+    reload: bool = False,
+    overwrite: bool = False, # 【新增参数】
 ):
-    """
-    运行完整的推理流程（多线程版本）
+    # 1. 初始化 LLMServer
+    llm_server = LLMServer(base_url=server_url, api_key=api_key)
 
-    Args:
-        model_url: vLLM 服务地址
-        model_name: 模型名称
-        output_file: 输出文件路径
-        max_samples: 最大处理样本数，None 表示处理全部
-        num_threads: 线程数量，默认为 4
-    """
-    # 初始化 OpenAI 客户端
-    client = OpenAI(base_url=server_url, api_key=api_key)
-
-    # 加载数据集
-    if dataset_name == "hotpotqa":
-        dataset_loader = HotpotQA(max_samples=max_samples, split='train' if split == 'train' else 'validation')
-    elif dataset_name == "multirc":
-        dataset_loader = MultiRC(max_samples=max_samples, split='dev' if split == 'train' else 'train')
-    elif dataset_name == "musique":
-        dataset_loader = MuSiQue(max_samples=max_samples, split='train' if split == 'train' else 'validation') 
-    elif dataset_name == "2wikimultihopqa":
-        dataset_loader = TwoWikiMultihopQA(max_samples=max_samples, split='dev') # 2wiki的test没有answer
-    elif dataset_name == "popqa":
-        dataset_loader = PopQA(max_samples=max_samples, split='train' if split == 'train' else 'test')
-    elif dataset_name == "qasper":
-        dataset_loader = Qasper(max_samples=max_samples, split='train' if split == 'train' else 'test')
-    elif dataset_name == "pubmedqa":
-        dataset_loader = PubMedQA(max_samples=max_samples, dataset_name='pqa_artificial' if split == 'train' else 'pqa_labeled' )
-    elif dataset_name == "faitheval":
-        dataset_loader = FaithEval(max_samples=max_samples)
-    elif dataset_name == "copypaste":
-        dataset_loader = CopyPaste(max_samples=max_samples, split='train' if split == 'train' else 'test')
-    else:
-        raise ValueError(f"不支持的数据集: {dataset_name}")
+    # 2. 加载数据集
+    print(f"正在加载数据集: {dataset_name} (split={split})...")
+    try:
+        dataset_enum = AvailableDataset(dataset_name)
+        dataset_loader = load(
+            name=dataset_enum,
+            split=split,
+            max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,
+            reload=reload,
+        )
+    except Exception as e:
+        raise ValueError(f"数据集加载失败: {e}")
 
     dataset_dict = dataset_loader.dataset
-    dataset = []
-    for id, sample in dataset_dict.items():
-        dataset.append(sample)
+    # 转换为列表，方便后续处理
+    full_dataset = list(dataset_dict.values())
+    print(f"原始数据集共 {len(full_dataset)} 个样本")
 
-    print(f"使用 {num_threads} 个线程进行并行推理")
-
-    system_prompt_snapshot, user_prompt_snapshot = create_prompt("示例问题", "示例上下文", prompt_type)
+    # 3. 【核心修改】断点续传逻辑
+    results = {}
+    existing_ids = set()
     start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
-    # 初始化结果存储（线程安全）
-    results = {}
+    if os.path.exists(output_file) and not overwrite:
+        print(f"检测到已存在的结果文件: {output_file}")
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # 兼容不同格式，有些可能直接存的dict，有些存的 {"data": ...}
+                if "data" in data:
+                    results = data["data"]
+                    # 如果有 info，可以考虑保留原始 start_time，这里简单处理，使用当前时间更新
+                else:
+                    # 兼容旧格式（如果不小心直接存了results）
+                    results = data 
+                
+            existing_ids = set(results.keys())
+            print(f">>> 成功加载断点，已完成 {len(existing_ids)} 个样本，将继续推理剩余部分。")
+        except json.JSONDecodeError:
+            print(">>> [警告] 现有文件损坏或为空，将从头开始。")
+        except Exception as e:
+            print(f">>> [警告] 读取断点文件失败: {e}，将从头开始。")
+    elif overwrite and os.path.exists(output_file):
+        print(f">>> 用户指定 --overwrite，将覆盖现有文件: {output_file}")
+    
+    # 4. 过滤掉已经做过的样本
+    remaining_dataset = [s for s in full_dataset if s['id'] not in existing_ids]
 
-    # 线程锁，用于保护共享资源
-    results_lock = threading.Lock()
-    processed_count = 0
+    if not remaining_dataset:
+        print("所有样本均已完成推理！")
+        return
 
-    # 设置保存间隔
-    save_interval = 1000
+    print(f"本次需推理 {len(remaining_dataset)} 个样本，使用 {num_threads} 个线程")
 
-    def update_results(sample_id: str, sample: dict, predict: str):
-        """线程安全地更新结果"""
-        nonlocal processed_count
+    # 快照用于记录
+    system_prompt_snapshot, user_prompt_snapshot = create_prompt(
+        "示例问题", "示例上下文", prompt_type
+    )
 
-        with results_lock:
-            results[sample_id] = sample
-            results[sample_id]["predict"] = predict
-            processed_count += 1
+    # 初始化安全保存器 (每 30 秒保存一次)
+    saver = SafeSaver(output_file, save_interval_seconds=30)
 
-            # 每间隔指定数量样本保存一次中间结果
-            if processed_count % save_interval == 0 or processed_count == len(dataset):
-                save_intermediate_results(
-                    results, output_file, processed_count, len(dataset)
-                )
-
-    # 使用线程池进行并行处理
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        # 提交所有任务
-        future_to_sample = {
-            executor.submit(
-                process_single_sample,
-                sample,
-                client,
-                model_name,
-                prompt_type,
-                temperature,
-                enable_thinking,
-            ): sample
-            for sample in dataset
+    # 闭包函数：获取包含（旧结果 + 新结果）的完整数据
+    def get_full_results():
+        end_time_dynamic = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        experiment_info = {
+            "server_url": server_url,
+            "model_name": model_name,
+            "prompt_type": prompt_type,
+            "system_prompt_snapshot": system_prompt_snapshot,
+            "user_prompt_snapshot": user_prompt_snapshot,
+            "start_time": start_time,
+            "end_time": end_time_dynamic,
+            "temperature": temperature,
+            "dataset": dataset_name,
+            "max_samples": max_samples,
+            "num_threads": num_threads,
+            "output_file": output_file,
+            "infer_git_commit_id": get_git_commit_id(),
+            "噪音文档数量": distractor_docs,
+            "是否剔除金标上下文": unanswerable,
+            "是否重启了数据集构建": reload,
+            "是否覆盖重跑": overwrite
         }
+        return {"info": experiment_info, "data": results}
 
-        # 使用 tqdm 显示进度条
-        with tqdm(total=len(dataset), desc="推理进度", unit="样本") as pbar:
-            for future in as_completed(future_to_sample):
-                sample = future_to_sample[future]
-                sample_id = sample["id"]
+    try:
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            # 只提交剩余的任务
+            future_to_sample = {
+                executor.submit(
+                    process_single_sample,
+                    sample,
+                    llm_server,
+                    model_name,
+                    prompt_type,
+                    temperature,
+                    enable_thinking,
+                ): sample
+                for sample in remaining_dataset
+            }
 
-                try:
-                    # 获取结果
-                    result_sample_id, predict = future.result()
+            # 进度条总量是本次需要跑的任务量
+            with tqdm(total=len(remaining_dataset), desc="推理进度", unit="样本") as pbar:
+                for future in as_completed(future_to_sample):
+                    sample = future_to_sample[future]
+                    sample_id = sample["id"]
+                    
+                    try:
+                        result_sample_id, predict = future.result()
+                        
+                        # 更新内存结果 (results 包含了旧数据 + 新数据)
+                        results[result_sample_id] = {"predict": predict}
+                        
+                        # 尝试保存
+                        saver.save(get_full_results())
+                        
+                    except Exception as e:
+                        tqdm.write(f"样本 {sample_id} 异常: {e}")
+                        results[sample_id] = {"predict": f"Error: {e}"}
+                    
+                    pbar.update(1)
 
-                    # 更新进度条描述
-                    pbar.set_description(f"处理样本 {sample_id}")
-
-                    # 更新结果
-                    update_results(result_sample_id, sample, predict)
-
-                except Exception as e:
-                    tqdm.write(f"样本 {sample_id} 处理失败: {e}")
-                    # 即使失败也要更新结果（空结果）
-                    update_results(sample_id, sample, [])
-
-                # 更新进度条
-                pbar.update(1)
-
-    end_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-
-    commit_id = get_git_commit_id()
-
-    # 记录实验信息
-    experiment_info = {
-        "server_url": server_url,
-        "model_name": model_name,
-        "prompt_type": prompt_type,
-        "system_prompt_snapshot": system_prompt_snapshot,
-        "user_prompt_snapshot": user_prompt_snapshot,
-        "start_time": start_time,
-        "end_time": end_time,
-        "temperature": temperature,
-        "dataset": dataset_name,
-        "max_samples": max_samples,
-        "num_threads": num_threads,
-        "output_file": output_file,
-        "infer_git_commit_id": commit_id,
-    }
-
-    # 保存最终结果
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(
-            {"info": experiment_info, "data": results}, f, ensure_ascii=False, indent=2
-        )
-
-    print(f"推理完成，结果已保存到: {output_file}")
-    print(f"总共处理了 {len(results)} 个样本")
+    except KeyboardInterrupt:
+        print("\n\n检测到用户中断 (Ctrl+C)，正在保存当前进度...")
+    except Exception as e:
+        print(f"\n\n发生严重错误: {e}，正在尝试保存进度...")
+    finally:
+        # 强制保存最后状态
+        saver.save(get_full_results(), force=True)
+        print(f"推理结束，结果已保存到: {output_file}")
+        print(f"当前文件共包含 {len(results)}/{len(full_dataset)} 个样本的结果")
 
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description="HotpotQA 推理脚本（多线程版本）")
-    parser.add_argument(
-        "--server-url",
-        type=str,
-        default="http://localhost:8124/v1",
-        help="vLLM 服务地址，例如: https://api.siliconflow.cn/v1",
-    )
-    parser.add_argument(
-        "--model-name",
-        type=str,
-        required=True,
-        help="模型名称",
-    )
-    parser.add_argument(
-        "--max-samples", type=int, default=-1, help="最大处理样本数，用于测试"
-    )
-    parser.add_argument(
-        "--num-threads", type=int, default=4, help="并行推理的线程数量，默认为 4"
-    )
-    parser.add_argument(
-        "--prompt-type",
-        type=str,
-        default="direct",
-        choices=["direct_inference", "cot", "rag", "ircot", "deepseek", "copypaste"],
-        help="提示模板选择",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="hotpotqa",
-        choices=[
-            "hotpotqa",
-            "multirc",
-            "pubmedqa",
-            "musique",
-            "2wikimultihopqa",
-            "popqa",
-            "faitheval",
-            "qasper",
-            "copypaste",
-        ],
-        help="数据集名称，当前仅支持 hotpotqa",
-    )
-    parser.add_argument(
-        "--api-key",
-        type=str,
-        default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh",
-        help="API Key，用于访问 第三方 服务",
-    )
-    parser.add_argument("--temperature", type=float, default=0.7, help="模型生成温度")
-    parser.add_argument("--seed", type=int, default=42, help="模型生成 top-p 采样")
-    parser.add_argument(
-        "--enable-thinking", action="store_true", help="是否启用思考"
-    )
-    parser.add_argument(
-        "--split", type=str, default="test", help="是否推理训练集"
-    )
+    parser = argparse.ArgumentParser(description="HotpotQA 推理脚本（断点续传版）")
+    parser.add_argument("--server-url", type=str, default="http://localhost:8124/v1", help="vLLM 服务地址")
+    parser.add_argument("--model-name", type=str, required=True, help="模型名称")
+    parser.add_argument("--max-samples", type=int, default=-1, help="最大处理样本数")
+    parser.add_argument("--num-threads", type=int, default=4, help="并行线程数")
+    parser.add_argument("--prompt-type", type=str, default="direct", 
+                        choices=["direct_inference", "cot", "rag", "ircot", "deepseek", "copypaste", "find_facts"], 
+                        help="提示模板选择")
+    parser.add_argument("--dataset", type=str, default=AvailableDataset.HOTPOTQA.value,
+                        choices=[e.value for e in AvailableDataset], help="数据集名称")
+    parser.add_argument("--api-key", type=str, default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh", help="API Key")
+    parser.add_argument("--temperature", type=float, default=0.7, help="温度")
+    parser.add_argument("--seed", type=int, default=42, help="随机种子")
+    parser.add_argument("--distractor-docs", type=int, default=0, help="噪音文档数")
+    parser.add_argument("--unanswerable", action="store_true", help="是否剔除gold context")
+    parser.add_argument("--reload", action="store_true", help="是否重构数据集")
+    parser.add_argument("--enable-thinking", action="store_true", help="启用思考")
+    parser.add_argument("--split", type=str, default="test", choices=["train", "validation", "test"], help="数据集划分")
+    
+    # 【新增参数】
+    parser.add_argument("--overwrite", action="store_true", help="如果输出文件存在，是否强制覆盖（默认：否，即进行断点续传）")
 
     args = parser.parse_args()
 
     random.seed(args.seed)
-
-    timestamp = int(time.time())
+    
+    # 移除了时间戳，确保文件名确定性
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    output_file = f"results/infer/{args.split}/{model_name_clean}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}/{args.dataset}-prompt_{args.prompt_type.replace(' ', '_')}-{timestamp}.json"
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
+    output_file = f"results/infer/{args.split}/{model_name_clean}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}/prompt_{args.prompt_type.replace(' ', '_')}/{args.dataset}-noise_{args.distractor_docs}-{'unanswerable' if args.unanswerable else 'answerable'}.json"
+    
     run_inference(
         server_url=args.server_url,
         model_name=args.model_name,
@@ -386,8 +285,11 @@ def main():
         temperature=args.temperature,
         enable_thinking=args.enable_thinking,
         split=args.split,
+        distractor_docs=args.distractor_docs,
+        unanswerable=args.unanswerable,
+        reload=args.reload,
+        overwrite=args.overwrite, # 传入新参数
     )
-
 
 if __name__ == "__main__":
     main()

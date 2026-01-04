@@ -1,40 +1,33 @@
-from typing import List
-
 import spacy
+from typing import List
 
 class NLPTool:
     def __init__(self):
-        # 加载英文模型 (建议在全局加载一次，避免函数重复调用导致性能下降)
-        # disable 参数禁用了不需要的组件（如命名实体识别），可以提高分句速度
-        try:
-            print('正在装载 spacy 模型...')
-            self.nlp = spacy.load("en_core_web_sm", disable=["ner", "textcat"])
-        except OSError:
-            print("正在下载 spacy 模型...")
-            from spacy.cli import download
-            download("en_core_web_sm")
-            self.nlp = spacy.load("en_core_web_sm", disable=["ner", "textcat"])
-
-    def split_sentences_spacy(self, text):
-        """
-        使用 spaCy 对英文文本进行分句。
+        # 优化点 1: 不需要加载 en_core_web_sm 这样的大模型
+        # 直接创建一个空的英文语言对象，启动速度瞬间完成
+        self.nlp = spacy.blank("en")
         
-        Args:
-            text (str): 输入的大段文本。
-            
-        Returns:
-            list: 包含分句后字符串的列表。
+        # 优化点 2: 添加 "sentencizer" 组件
+        # 这是一个基于规则的轻量级组件，只看标点符号，不进行复杂的语法分析
+        # 速度比 parser 快几个数量级
+        self.nlp.add_pipe("sentencizer")
+        
+        # 增加最大长度限制防止内存溢出（可选，视你的文本长度而定）
+        self.nlp.max_length = 10000000 
+
+    def split_sentences_spacy(self, text: str) -> List[str]:
         """
-        # 处理文本
-        # nlp() 会自动进行分词、词性标注和依存句法分析，从而确定句子边界
+        使用 spaCy 的 sentencizer 进行极速分句。
+        """
+        if not text:
+            return []
+            
         doc = self.nlp(text)
         
-        # doc.sents 是一个生成器，生成 Span 对象
-        # 我们将其转换为文本并去除首尾空白
+        # 逻辑保持不变
         sentences = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
         
         return sentences
-
 
 class StringContainmentFilter:
     def __init__(self, data: List[str]):

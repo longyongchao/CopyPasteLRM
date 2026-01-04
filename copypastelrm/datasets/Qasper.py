@@ -2,6 +2,7 @@ from typing import Any, Dict, List
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 from datasets import load_dataset
 from typing import Literal
+from copypastelrm.utils.dataset import StringContainmentFilter
 
 
 class Qasper(BaseDatasetLoader):
@@ -15,6 +16,7 @@ class Qasper(BaseDatasetLoader):
         distractor_docs: int = 8,
         unanswerable: bool = False,
     ):
+
         super().__init__(
             dataset_path="allenai/qasper",
             split=split,
@@ -94,16 +96,24 @@ class Qasper(BaseDatasetLoader):
         return dataset
 
     def format_item(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        facts = sample["supporting_facts"]
+
+        facts_processor = StringContainmentFilter(facts)
+
+        filtered_facts = facts_processor.filter_minimal_substrings()
 
         return {
             "id": sample["id"],
             "query": sample["query"],
             "answers": sample["answers"],
-            "corpus": {
-                "title": sample["title"],
-                "sentences": self.nlp.split_sentences_spacy(self.sample["context"]),
-                "facts": sample["supporting_facts"],
-            },
+            "corpus": [
+                {
+                    "title": sample["title"],
+                    "sentences": self.nlp.split_sentences_spacy(sample["context"]),
+                    "facts": filtered_facts,
+                }
+            ],
+            "extra": {}
         }
 
 

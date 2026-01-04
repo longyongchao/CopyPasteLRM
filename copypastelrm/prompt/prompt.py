@@ -1,7 +1,7 @@
 from typing import Dict, Any, Literal
 from string import Template
 
-from copypastelrm.datasets import load, AvailebleDatasets
+from copypastelrm.datasets import load, AvailableDataset
 
 
 SYSTEM_PROMPT = {
@@ -66,6 +66,21 @@ A conversation between User and Assistant. The user asks a question, and the Ass
 ## Example of Desired Style
 <|think|>Upon reviewing the test results, I notice that <|EVIDENCE|>the patient's white blood cell count rose by 30% after antibiotic treatment</|EVIDENCE|>, which suggests infection control progress. However, since <|EVIDENCE|>their C-reactive protein level only decreased by 10%</|EVIDENCE|>, the inflammatory response might not have subsided significantly.</|think|>
 <|answer|>inflammation lingers</|answer|>""".strip(),
+    "find_facts": """
+Based on the provided context, identify and extract all specific facts or sentences that are helpful or necessary to answer the question.
+
+## Instructions:
+1. **Identify Support:** Scan the context for information that directly supports the reasoning path to the answer.
+2. **Extract Only:** Extract these facts exactly as they appear in the context or slightly paraphrased for clarity.
+3. **Format:** Wrap each distinct fact in <|EVIDENCE|>...</|EVIDENCE|> tags.
+4. **No Answer:** Do NOT provide the answer to the question.
+5. **No Extra Text:** Do NOT include any introduction, explanation, or conversational filler. Your output should strictly be a list of tagged facts.
+
+## Desired Output Format
+<|EVIDENCE|>Supporting fact 1 extracted from context</|EVIDENCE|>
+<|EVIDENCE|>Supporting fact 2 extracted from context</|EVIDENCE|>
+...
+""".strip(),
 }
 
 only_query_prompt_template = """
@@ -91,6 +106,7 @@ def create_prompt(
         "ircot",
         "deepseek",
         "copypaste",
+        "find_facts",
     ],
 ) -> str:
 
@@ -115,12 +131,12 @@ def create_prompt(
 
 def main():
     # 示例用法
-    dataset_loader = load(AvailebleDatasets.TWOWIKI)
+    dataset_loader = load(AvailableDataset.TWO_WIKI_MULTI_HOP_QA, reload=True)
     sample = dataset_loader.get_sample()
 
     question = sample["query"]
     context = sample["context"]
-    prompt_type = "cot"
+    prompt_type = "find_facts"
     system_prompt, user_prompt = create_prompt(question, context, prompt_type)
 
     print(system_prompt)

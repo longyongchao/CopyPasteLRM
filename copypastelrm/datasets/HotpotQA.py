@@ -66,7 +66,7 @@ class HotpotQA(BaseDatasetLoader):
         return {
             "id": _id,
             "query": query,
-            "answers": [answers],
+            "answers": answers,
             "corpus": corpus,
             "extra": {"type": type, "level": level},
         }

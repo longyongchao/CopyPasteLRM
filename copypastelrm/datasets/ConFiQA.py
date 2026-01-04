@@ -123,14 +123,14 @@ if __name__ == "__main__":
     # 测试代码
     try:
         # 测试加载 Original 分割
-        loader = ConFiQA(subset="QA", split="original", reload=True)
+        loader = ConFiQA(subset="QA", split="original", reload=False)
         print(f"Original subset loaded. Samples: {len(loader.dataset)}")
         loader.random_sample()
 
         print("-" * 50)
 
         # 测试加载 Counterfactual 分割
-        loader_cf = ConFiQA(subset="QA", split="counterfactual", reload=True)
+        loader_cf = ConFiQA(subset="QA", split="counterfactual", reload=False)
         print(f"Counterfactual subset loaded. Samples: {len(loader_cf.dataset)}")
         loader_cf.random_sample()
 

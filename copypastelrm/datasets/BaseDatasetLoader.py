@@ -1,4 +1,4 @@
-import gzip  # <--- 新增引入
+import gzip
 import os
 import json
 import random
@@ -7,7 +7,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from datasets import load_dataset
 from tqdm import tqdm
 from copypastelrm.utils.dataset import NLPTool
-from copypastelrm.utils.bm25 import BM25Retriever 
+from copypastelrm.utils.bm25 import BM25Retriever
+from copypastelrm.utils.tokenizer import ChatTokenCounter
 
 class BaseDatasetLoader(ABC):
     def __init__(
@@ -22,7 +23,9 @@ class BaseDatasetLoader(ABC):
         max_samples: int = -1,
         filter_empty_answer: bool = True,
         distractor_docs: int = 8,
-        unanswerable: bool = False, 
+        unanswerable: bool = False,
+        tokenizer_path: str = "Qwen/Qwen2.5-7B-Instruct",
+        max_tokens: int = 28 * 1024,
     ):
         self.nlp = NLPTool()
         self.dataset_path = dataset_path
@@ -35,14 +38,21 @@ class BaseDatasetLoader(ABC):
         self.unanswerable = unanswerable
         self.distractor_docs = distractor_docs
         
+        self.tokenizer_path = tokenizer_path
+        self.max_tokens = max_tokens
+        print(f"Loading tokenizer from {self.tokenizer_path} for length check (Limit: {self.max_tokens} tokens)...")
+        self.tokenizer = ChatTokenCounter(self.tokenizer_path)
+
+        # [新增] 初始化用于统计 Token 数量的列表
+        self.token_stats = []
+
         # -----------------------------------------------------------
-        # 修改点 1: 缓存文件名后缀改为 .jsonl.gz
+        # 缓存路径设置
         # -----------------------------------------------------------
         base_name = self.dataset_path.replace('.json', '').replace('/', '-')
         subset_name = f"-{self.dataset_name}" if self.dataset_name else ""
         file_name = f"{base_name}{subset_name}-{self.split}-noise_{self.distractor_docs}-{'unanswerable' if self.unanswerable else 'answerable'}"
 
-        # 改用 .jsonl.gz
         self.cache_path = os.path.join(cache_dir, f"{file_name}.jsonl.gz")
 
         # -----------------------------------------------------------
@@ -86,9 +96,7 @@ class BaseDatasetLoader(ABC):
         assert len(self.dataset_list) == len(self.dataset), "数据集列表和字典长度不一致"
         print('🎉 数据集准备就绪')
 
-    # ... download_dataset 保持不变 ...
     def download_dataset(self) -> List[Dict[str, Any]]:
-        # (代码省略，保持原样)
         print(f"正在加载 {self.dataset_path} 数据集...")
         if self.dataset_name:
             print(f"数据集子集: {self.dataset_name}")
@@ -105,9 +113,6 @@ class BaseDatasetLoader(ABC):
         return list(dataset)
 
     def get_dataset(self) -> Tuple[List[Dict[str, Any]], bool]:
-        """
-        加载数据集 (支持 gzip 读取)。
-        """
         if (
             not self.reload
             and self.offline
@@ -115,9 +120,6 @@ class BaseDatasetLoader(ABC):
             and os.path.exists(self.cache_path)
         ):
             try:
-                # -----------------------------------------------------------
-                # 修改点 2: 使用 gzip.open 读取，模式为 'rt' (read text)
-                # -----------------------------------------------------------
                 print(f"🎯 Loading dataset from compressed cache: {self.cache_path}")
                 with gzip.open(self.cache_path, "rt", encoding='utf-8') as f:
                     formatted_dataset_list = json.load(f)
@@ -130,14 +132,10 @@ class BaseDatasetLoader(ABC):
             except Exception as e:
                 print(f"⚠️ 读取缓存失败: {e}，将回退到下载模式。")
 
-        # 无缓存或强制刷新
         origin_dataset = self.download_dataset()
         return origin_dataset, False
     
     def format_dataset(self, origin_dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        格式化数据集并保存 (支持 gzip 写入)。
-        """
         formatted_dataset_dict = {}
         formatted_dataset_list = []
 
@@ -152,6 +150,18 @@ class BaseDatasetLoader(ABC):
             formatted_dataset_list.append(formatted_sample)
             formatted_dataset_dict[formatted_sample["id"]] = formatted_sample
 
+        # [新增] 构建完成后，计算并打印统计信息
+        if self.token_stats:
+            avg_tokens = sum(self.token_stats) / len(self.token_stats)
+            max_tokens_obs = max(self.token_stats)
+            print("\n" + "="*50)
+            print(f"📊 Dataset Construction Token Statistics:")
+            print(f"   - Processed Samples: {len(self.token_stats)}")
+            print(f"   - Average Tokens:    {avg_tokens:.2f}")
+            print(f"   - Max Tokens:        {max_tokens_obs}")
+            print(f"   - Tokenizer:         {self.tokenizer_path}")
+            print("="*50 + "\n")
+
         if self.filter_empty_answer:
             formatted_dataset_list = self.get_non_empty_answer(formatted_dataset_list)
             formatted_dataset_dict = {sample["id"]: sample for sample in formatted_dataset_list}
@@ -161,21 +171,17 @@ class BaseDatasetLoader(ABC):
 
         if self.offline and self.cache_path:
             os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
-            # -----------------------------------------------------------
-            # 修改点 3: 使用 gzip.open 写入，模式为 'wt' (write text)
-            # -----------------------------------------------------------
             print(f"Saving formatted dataset to compressed cache: {self.cache_path}")
             with gzip.open(self.cache_path, "wt", encoding='utf-8') as f:
                 json.dump(
                     formatted_dataset_list,
                     f,
                     ensure_ascii=False,
-                    indent=4, # 如果为了极致空间，可以去掉 indent=4，变成紧凑格式
+                    indent=4,
                 )
 
         return formatted_dataset_dict
 
-    # ... 其余函数 (get_non_empty_answer, format_sample, format_item, construct_corpus 等) 保持完全不变 ...
     def get_non_empty_answer(self, data: list) -> list:
         return [
             sample for sample in data 
@@ -188,11 +194,35 @@ class BaseDatasetLoader(ABC):
     def format_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         item = self.format_item(sample)
         context, facts = self.construct_context_and_facts(item)
+        
+        context_str = "\n\n".join(context)
+        
+        # -----------------------------------------------------------
+        # Token 检查与统计逻辑
+        # -----------------------------------------------------------
+        facts_str = "\n".join(facts) if facts else ""
+        combined_text = f"{context_str}\n{item['query']}\n{facts_str}"
+        check_messages = [{"role": "user", "content": combined_text}]
+        
+        token_count = self.tokenizer(check_messages)
+        
+        # [新增] 记录统计数据
+        self.token_stats.append(token_count)
+        
+        if token_count > self.max_tokens:
+            raise ValueError(
+                f"🚨 Dataset Processing Error: Sample ID '{item['id']}' exceeds token limit!\n"
+                f"   Current Tokens: {token_count}\n"
+                f"   Max Allowed:    {self.max_tokens}\n"
+                f"   Processing interrupted."
+            )
+        # -----------------------------------------------------------
+
         formatted_sample = {
             "id": item['id'],
             "query": item['query'],
             "answers": item['answers'],
-            "context": "\n\n".join(context),
+            "context": context_str,
             "facts": facts,
             "corpus": item['corpus'],
             "extra": item.get('extra', None),
