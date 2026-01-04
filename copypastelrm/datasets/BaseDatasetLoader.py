@@ -45,7 +45,7 @@ class BaseDatasetLoader(ABC):
         # 构建缓存文件名
         base_name = self.dataset_path.replace('.json', '').replace('/', '-')
         subset_name = f"-{self.dataset_name}" if self.dataset_name else ""
-        file_name = f"{base_name}{subset_name}-{self.split}"
+        file_name = f"{base_name}{subset_name}-{self.split}-{self.distractor_docs}-{self.unanswerable}"
         self.cache_path = os.path.join(cache_dir, f"{file_name}.jsonl")
 
         if self.cache_path and not self.cache_path.endswith(".jsonl"):
