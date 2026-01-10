@@ -1,6 +1,6 @@
-TARGET_DIR="results"
-OLD_STR="qwen2.5-3b-instruct"
-NEW_STR="Qwen2.5-3B-Instruct"
+TARGET_DIR="results/infer/test/Qwen2.5-7B-Instruct/resamples_2000/seed_42/tpr_0.6"
+OLD_STR="confiqa-mr-"
+NEW_STR="ConFiQA-MR-"
 
 # 预览
 find "$TARGET_DIR" -type f -name "*.json" -print0 | while read -d '' -r file; do

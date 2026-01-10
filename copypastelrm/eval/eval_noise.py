@@ -18,6 +18,8 @@ from copypastelrm.metrics.utils import (
 from copypastelrm.metrics.HotpotQA import compute_answer_em_hit_f1, update_sp
 from copypastelrm.datasets import load as load_copypaste_qa, AvailableDataset
 
+os.environ["HF_OFFLINE"] = "1"
+
 # --- 全局缓存 ---
 _DATASET_CACHE = {}
 
@@ -51,9 +53,25 @@ def get_dataset_loader_with_cache(dataset_enum):
     if dataset_enum in _DATASET_CACHE:
         return _DATASET_CACHE[dataset_enum]
     print(f"🐢 First time loading dataset: {dataset_enum.value} ...")
-    loader = load_copypaste_qa(name=dataset_enum, split="test", distractor_docs=0, unanswerable=True)
+    loader = load_copypaste_qa(name=dataset_enum, split="test", distractor_docs=0, unanswerable=True, reload=False)
     _DATASET_CACHE[dataset_enum] = loader
     return loader
+
+def calculate_log_visual_x(noise):
+    """
+    计算基于 Log2 的视觉坐标。
+    映射规则:
+    0 -> 0
+    1 -> 1
+    2 -> 2
+    4 -> 3
+    8 -> 4
+    ...
+    N -> log2(N) + 1 (for N >= 1)
+    """
+    if noise == 0:
+        return 0
+    return np.log2(noise) + 1
 
 def process_single_file(file_path):
     try:
@@ -84,11 +102,14 @@ def process_single_file(file_path):
     else:
         noise_level = int(noise_level)
 
-    # 坐标映射
+    # === 核心修改: Log2 坐标映射 ===
+    base_x = calculate_log_visual_x(noise_level)
+    
+    # 左右分离逻辑：中间留出 1.0 的 Gap (-0.5 到 0.5)
     if is_gold_removed:
-        visual_x = -(noise_level + 1)
+        visual_x = -(base_x + 0.5)
     else:
-        visual_x = noise_level
+        visual_x = (base_x + 0.5)
 
     prompt_type = info.get('prompt_type', 'rag')
     if prompt_type in ['rag', 'ircot']:
@@ -131,14 +152,6 @@ def process_single_file(file_path):
         "Facts F1": np.mean(sp_f1s)
     }
 
-def format_xaxis(x, pos):
-    if x >= 0:
-        val = int(x)
-        return f"{val}"
-    else:
-        val = int(abs(x) - 1)
-        return f"{val}"
-
 def plot_results(df, output_path):
     metrics_map = {
         "Answer EM": "Answer EM",
@@ -151,29 +164,30 @@ def plot_results(df, output_path):
     axes = axes.flatten()
 
     datasets = sorted(df['Dataset'].unique())
-    
-    # === 修复 1: 使用 husl 色板 ===
-    # husl 可以在色彩空间中均匀切分出 N 种颜色，保证 N 个数据集颜色均不相同
-    # 避免了 bright/deep 等标准色板只有 10 种颜色的限制
     palette = sns.color_palette("husl", len(datasets))
-    
-    # 如果你觉得 husl 颜色太亮，可以使用 'tab20' (最多20种)
-    # palette = sns.color_palette("tab20", len(datasets)) if len(datasets) <= 20 else sns.color_palette("husl", len(datasets))
-    
     color_map = dict(zip(datasets, palette))
 
-    # === 修复 2: 扩展 Marker 列表 ===
-    # 定义更多种类的 Marker，防止形状重复
-    # 优先级: 圆, 方, 三角, 菱形, 叉, 五边形, 六边形...
+    # 定义 Marker 列表
     markers_pool = ['o', 's', '^', 'D', 'v', '<', '>', 'p', '*', 'h', 'H', 'X', 'd', 'P', '8']
-    # 如果数据集比 marker 种类还多，循环使用，但因为颜色不同，组合依然是唯一的
+
+    # === 生成 Log2 刻度 ===
+    # 我们希望显示的刻度点: 0, 1, 2, 4, 8, 16, 32, 64
+    target_ticks = [0, 1, 2, 4, 8, 16, 32, 64]
     
+    # 计算这些刻度在 Visual X 轴上的位置
+    right_tick_locs = [calculate_log_visual_x(t) + 0.5 for t in target_ticks]
+    left_tick_locs = [-(calculate_log_visual_x(t) + 0.5) for t in target_ticks]
+    
+    # 合并左右刻度
+    all_tick_locs = left_tick_locs + right_tick_locs
+    all_tick_labels = [str(t) for t in target_ticks] + [str(t) for t in target_ticks]
+
     for i, (metric_col, metric_label) in enumerate(metrics_map.items()):
         ax = axes[i]
         
-        # 1. 绘制左侧 (Visual X <= -1)
+        # 1. 绘制左侧 (Visual X < 0)
         sns.lineplot(
-            data=df[df['Visual X'] <= -1],
+            data=df[df['Visual X'] < 0],
             x="Visual X", y=metric_col,
             hue="Dataset", style="Dataset",
             palette=palette, hue_order=datasets, style_order=datasets,
@@ -182,9 +196,9 @@ def plot_results(df, output_path):
             legend=False, ax=ax
         )
 
-        # 2. 绘制右侧 (Visual X >= 0)
+        # 2. 绘制右侧 (Visual X > 0)
         sns.lineplot(
-            data=df[df['Visual X'] >= 0],
+            data=df[df['Visual X'] > 0],
             x="Visual X", y=metric_col,
             hue="Dataset", style="Dataset",
             palette=palette, hue_order=datasets, style_order=datasets,
@@ -193,30 +207,37 @@ def plot_results(df, output_path):
             legend=False, ax=ax
         )
 
-        # 装饰部分
-        ax.axvline(x=-0.5, color='black', linestyle='-', linewidth=1.5, alpha=0.5)
+        # === 装饰部分 ===
+        # 分界线 (x=0)
+        ax.axvline(x=0, color='black', linestyle='-', linewidth=1.5, alpha=0.5)
         
+        # 区域背景色
+        # 获取当前视图范围
         x_min_visual, x_max_visual = df['Visual X'].min(), df['Visual X'].max()
-        padding = 1
+        padding = 0.5
         ax.set_xlim(x_min_visual - padding, x_max_visual + padding)
         
-        ax.axvspan(x_min_visual - padding, -0.5, facecolor='#fff0f0', alpha=0.3)
-        ax.axvspan(-0.5, x_max_visual + padding, facecolor='#f0f8ff', alpha=0.3)
+        # 左侧红底 (无金标)
+        ax.axvspan(x_min_visual - padding, 0, facecolor='#fff0f0', alpha=0.3)
+        # 右侧蓝底 (有金标)
+        ax.axvspan(0, x_max_visual + padding, facecolor='#f0f8ff', alpha=0.3)
 
         if i < 2:
-            ax.text(x_min_visual/2 - 0.5, 1.02, "Unanswerable\n(No Gold Doc)", 
+            ax.text(x_min_visual/2, 1.02, "Unanswerable\n(No Gold Doc)", 
                     transform=ax.get_xaxis_transform(), 
                     ha='center', va='bottom', fontsize=12, fontweight='bold', color='#8B0000')
             ax.text(x_max_visual/2, 1.02, "Answerable\n(With Gold Doc)", 
                     transform=ax.get_xaxis_transform(),
                     ha='center', va='bottom', fontsize=12, fontweight='bold', color='#00008B')
 
-        ax.xaxis.set_major_formatter(ticker.FuncFormatter(format_xaxis))
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+        # === 设置自定义 Log2 刻度 ===
+        ax.set_xticks(all_tick_locs)
+        ax.set_xticklabels(all_tick_labels)
 
         ax.set_ylabel(metric_label, fontweight='bold')
         ax.set_xlabel("")
         ax.grid(True, which='major', linestyle='--', alpha=0.6)
+        ax.set_ylim(-0.02, 1.02)
 
     fig.text(0.5, 0.14, "Number of Noise Documents", ha='center', fontsize=16, fontweight='bold')
     fig.text(0.28, 0.14, "← Without Gold Context", ha='center', fontsize=12, color='#8B0000')
@@ -225,10 +246,9 @@ def plot_results(df, output_path):
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.18, top=0.92)
     
-    # === 修复 3: 手动图例生成逻辑更新 ===
+    # 图例生成
     legend_elements = []
     for idx, ds in enumerate(datasets):
-        # 确保 marker 的索引与绘图时一致
         marker = markers_pool[idx % len(markers_pool)]
         legend_elements.append(
             Line2D([0], [0], color=color_map[ds], lw=2.5, label=ds, 
@@ -238,26 +258,33 @@ def plot_results(df, output_path):
     fig.legend(
         handles=legend_elements,
         loc='lower center', 
-        bbox_to_anchor=(0.5, 0.05),
-        ncol=min(len(datasets), 6), # 自动调整列数
+        bbox_to_anchor=(0.5, 0.95),
+        ncol=min(len(datasets), 5), 
         frameon=False,
-        fontsize=12, # 稍微调小一点以免太挤
+        fontsize=12, 
         title="Datasets"
     )
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
-    print(f"✅ Figure saved to: {os.path.abspath(output_path)}")
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Figure saved to: {os.path.abspath(output_path)}")
 
 def main():
-    parser = argparse.ArgumentParser(description="CopyPasteLRM Visualization: Fix Colors.")
+    parser = argparse.ArgumentParser(description="CopyPasteLRM Visualization: Log2 Scale.")
     parser.add_argument('folder_path', type=str, help="Result folder path.")
-    parser.add_argument('--output', type=str, default="scaling_fixed_colors.png", help="Output filename.")
+    parser.add_argument('--output', type=str, default=None, help="Output filename.")
     args = parser.parse_args()
+
+    exclude_dataset = ['ConFiQA-MC-Original', 'ConFiQA-MR-Original', 'ConFiQA-QA-Original', 'Qasper']
+
+    output_path = args.output if args.output else os.path.join(args.folder_path, "noise_scaling_log2.png")
 
     files = glob.glob(os.path.join(args.folder_path, "*.json"))
     if not files:
         print("No files found.")
         return
+
+    files = [f for f in files if not any(exclude_ds in os.path.basename(f) for exclude_ds in exclude_dataset)]
 
     print(f"Found {len(files)} files. Processing with cache...")
     data_list = []
@@ -279,7 +306,7 @@ def main():
     df = df.sort_values(by=["Dataset", "Visual X"])
 
     print("Data loaded. Generating plots...")
-    plot_results(df, args.output)
+    plot_results(df, output_path)
 
 if __name__ == "__main__":
     main()

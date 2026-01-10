@@ -296,7 +296,6 @@ class BaseDatasetLoader(ABC):
         
         if self.unanswerable:
             context = distractor_context
-            facts = []
         else:
             context = gold_context + distractor_context
 

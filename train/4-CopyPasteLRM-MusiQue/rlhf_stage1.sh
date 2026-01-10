@@ -90,9 +90,9 @@ swift rlhf \
     --beta ${GRPO_BETA} \
     --dynamic_sample true \
     --epsilon_high ${GRPO_EPSILON_HIGH} \
-    --use_vllm true \
-    --vllm_mode server \
-    --vllm_server_host 127.0.0.1 \
-    --vllm_server_port 8000 \
     --rollout_importance_sampling_mode token_mask \
+    # --use_vllm true \
+    # --vllm_mode server \
+    # --vllm_server_host 127.0.0.1 \
+    # --vllm_server_port 8000 \
 

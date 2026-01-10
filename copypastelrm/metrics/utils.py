@@ -68,9 +68,9 @@ def extract_answer_and_facts_old(predict: str) -> Tuple[str, List[List[str]]]:
 
     # 提取所有 <copy> 标签中的内容
     evidence_matches = re.findall(r"<\|EVIDENCE\|>(.*?)</\|EVIDENCE\|>", predict, re.DOTALL)
-    predict_sfs = [match.strip() for match in evidence_matches]
+    predict_facts = [match.strip() for match in evidence_matches]
 
-    return predict_answer, predict_sfs
+    return predict_answer, predict_facts
 
 def find_text_in_context(text: str, context: Dict[str, Any]) -> Tuple[str, int]:
     """

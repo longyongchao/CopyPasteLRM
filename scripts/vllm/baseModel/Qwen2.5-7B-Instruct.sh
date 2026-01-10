@@ -14,4 +14,4 @@ python -m vllm.entrypoints.openai.api_server \
   --max-num-seqs 64 \
   --tensor-parallel-size 2 \
   --disable-log-requests \
-  # --disable-log-stats
+  --disable-log-stats

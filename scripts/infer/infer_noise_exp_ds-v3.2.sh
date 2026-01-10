@@ -10,11 +10,11 @@ datasets=(
     "MuSiQue"
     "PopQA"
     "PubMedQA"
-    # "Qasper"
     "2WikiMultiHopQA"
-    "ConFiQA-QA"
     "ConFiQA-MC"
     "ConFiQA-MR"
+    "ConFiQA-QA"
+    # "Qasper"
     # "ConFiQA-QA-Original"
     # "ConFiQA-MC-Original"
     # "ConFiQA-MR-Original"
@@ -37,18 +37,18 @@ prompt_types=(
     # "cot"
     "find_facts"
     # "deepseek"
-    "copypaste"
     "rag"
-    "ircot"
+    "copypaste"
+    # "ircot"
 )
 
 # 定义重复次数，默认为3次
 
-server_url="http://localhost:8124/v1"
-# server_url="https://api.siliconflow.cn/v1"
-num_threads=36
-model_name="Qwen2.5-7B-Instruct"
-max_samples=2000
+# server_url="http://localhost:8124/v1"
+server_url="https://api.siliconflow.cn/v1"
+num_threads=2
+model_name="deepseek-ai/DeepSeek-V3.2"
+max_samples=200
 split="test"
 temperature=0.6
 

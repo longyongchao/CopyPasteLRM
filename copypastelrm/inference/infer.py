@@ -143,9 +143,23 @@ def run_inference(
                 else:
                     # 兼容旧格式（如果不小心直接存了results）
                     results = data 
-                
-            existing_ids = set(results.keys())
-            print(f">>> 成功加载断点，已完成 {len(existing_ids)} 个样本，将继续推理剩余部分。")
+            
+            # 【新增】只将 predict 不为 null 的样本加入 existing_ids，predict 为 null 的需要重新推理
+            existing_ids = set()
+            null_predict_ids = []
+            for sample_id, sample_result in results.items():
+                predict = sample_result.get("predict")
+                if predict is not None and not str(predict).startswith("ERROR:"):
+                    existing_ids.add(sample_id)
+                else:
+                    null_predict_ids.append(sample_id)
+            
+            if null_predict_ids:
+                print(f">>> 检测到 {len(null_predict_ids)} 个样本的 predict 为 null 或包含错误，将重新推理这些样本。")
+                if len(null_predict_ids) <= 5:
+                    print(f">>> 样本ID列表: {', '.join(null_predict_ids)}")
+            
+            print(f">>> 成功加载断点，已完成 {len(existing_ids)} 个有效样本，将继续推理剩余部分。")
         except json.JSONDecodeError:
             print(">>> [警告] 现有文件损坏或为空，将从头开始。")
         except Exception as e:
