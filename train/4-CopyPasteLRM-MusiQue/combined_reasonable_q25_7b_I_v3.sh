@@ -38,7 +38,7 @@ export RLHF_CUDA_VISIBLE_DEVICES_LIST="1,2,3"
 export RLHF_NPROC_PER_NODE=3
 export BATCH_SIZE=3
 export NUM_GENERATIONS=9 # 要求是 RLHF_NPROC_PER_NODE * BATCH_SIZE 的整数倍
-export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste#500"
+export RLHF_DATASET="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"
 
 # 生成时间戳和实验名称
 timestamp=$(date +%m%d%H%M%S)

@@ -13,4 +13,5 @@ swift rollout \
     --vllm_tensor_parallel_size 1 \
     --vllm_max_model_len 32768 \
     --use_hf true \
+    --enforce-eager \
     --port 8000
