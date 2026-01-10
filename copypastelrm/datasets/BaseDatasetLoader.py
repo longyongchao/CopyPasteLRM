@@ -15,7 +15,7 @@ class BaseDatasetLoader(ABC):
         self,
         dataset_path: str,
         split: str,
-        cache_dir: str = "/tmp/copypastelrm/cache/",
+        cache_dir: str = "data/cache/",
         dataset_name: Optional[str] = None,
         offline: bool = True,
         reload: bool = False,
