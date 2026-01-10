@@ -54,11 +54,11 @@ class DeepSeekR1Preprocessor(ResponsePreprocessor):
 
         query = item["query"]
         context = item["context"]
-        answer = item["answer"]
+        answers = item["answers"]
 
-        sfs = item["sfs"]
-        sfs_processor = StringContainmentFilter(sfs)
-        filtered_sfs = sfs_processor.filter_maximal_superstrings()
+        facts = item["facts"]
+        sfs_processor = StringContainmentFilter(facts)
+        filtered_facts = sfs_processor.filter_maximal_superstrings()
 
         row.update(
             {
@@ -67,14 +67,14 @@ class DeepSeekR1Preprocessor(ResponsePreprocessor):
                     context=context,
                     question=query,
                 ),
-                "supporting_facts": filtered_sfs,
-                "answer_candidates": answer,
+                "supporting_facts": filtered_facts,
+                "answer_candidates": answers,
                 "context": context,
                 "dataset": 'MuSiQue',
                 "solution": {
                     "context": context,
-                    "supporting_facts": [split_sentences_spacy(sfs) for sfs in filtered_sfs],
-                    "answers": answer,
+                    "supporting_facts": [split_sentences_spacy(fact) for fact in filtered_facts],
+                    "answers": answers,
                     "dataset": 'MuSiQue',
                     "id": _id,
                 }
@@ -137,7 +137,7 @@ register_dataset(
 
 if __name__ == "__main__":
     dataset = load_dataset(
-        ["Qwen3-4B-I_MusiQue_128_without_2hop_deepseek"], remove_unused_columns=False, download_mode="force_redownload"
+        ["Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"], remove_unused_columns=False, download_mode="force_redownload"
     )
 
     print(f"dataset: {dataset}")
