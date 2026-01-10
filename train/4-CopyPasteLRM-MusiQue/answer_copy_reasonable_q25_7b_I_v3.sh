@@ -16,6 +16,8 @@ set -o pipefail
 source scripts/utils/vllm.sh
 source scripts/utils/gpu_port.sh
 
+sleep 30
+
 # 定义要判断的核心目录
 TARGET_DIR="/mnt/lustre/DATA/longyongchao"
 
