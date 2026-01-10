@@ -269,20 +269,26 @@ class CopyReward(ORM):
         # sparse: 找到部分支撑事实也给分
         # 检查COPY_REWARD_MODE变量是否存在
         if "COPY_REWARD_MODE" in os.environ:
-            self.copy_reward_mode: Literal['dense', 'sparse'] = os.getenv("COPY_REWARD_MODE", "dense") 
+            self.copy_reward_mode: Literal["dense", "sparse"] = os.getenv(
+                "COPY_REWARD_MODE", "dense"
+            )
         else:
-            raise ValueError("Environment variable 'COPY_REWARD_MODE' is not set. Please set it to 'dense' or 'sparse'.")
-        
+            raise ValueError(
+                "Environment variable 'COPY_REWARD_MODE' is not set. Please set it to 'dense' or 'sparse'."
+            )
+
         # 初始化格式验证器，用于检查模型输出是否包含规范的 XML 标签（如 <think>, <evidence> 等）
         self.format_validator = FormatValidator()
 
         self.perfert_match_bonus = 1.5  # 完美匹配奖励系数
-    
+
     @staticmethod
-    def _compute_supporting_facts_reward(predict_sfs: List[str], gold_sfs: List[List[str]]) -> float:
+    def _compute_supporting_facts_reward(
+        predict_sfs: List[str], gold_sfs: List[List[str]]
+    ) -> float:
         """
         计算预测的支撑事实与真实标签（Gold Supporting Facts）之间的匹配情况。
-        
+
         Args:
             predict_sfs: 模型预测出的支撑事实列表（字符串列表）。
             gold_sfs: 真实的支撑事实列表。结构通常为 [[句子1片段...], [句子2片段...]]。
@@ -296,30 +302,30 @@ class CopyReward(ORM):
         hit_tag = [False] * len(gold_sfs)
 
         # 将每个真实事实（可能被分割为列表）拼接成完整的字符串
-        gold_sfs_flat = [" ".join(fact) for fact in gold_sfs] 
+        gold_sfs_flat = [" ".join(fact) for fact in gold_sfs]
 
         for predict_sf in predict_sfs:
             # 使用 hit_answer 函数（外部定义）判断预测片段是否命中某个真实事实
             hit_gold_sf_flat = hit_answer(predict_sf, gold_sfs_flat)
-            
+
             # 如果命中了某个真实事实
             if hit_gold_sf_flat:
                 # 找到该事实在列表中的索引
                 idx = gold_sfs_flat.index(hit_gold_sf_flat)
-                
+
                 # 计算该真实事实中最短部分的长度（可能是为了防止模型只复制极短的片段来骗取奖励）
                 # 注意：这里假设 gold_sfs[idx] 是一个列表，包含该事实的各个组成部分
                 miniemum_sf_length = min([len(gold_sf) for gold_sf in gold_sfs[idx]])
-                
+
                 # 核心判断逻辑：
                 # 1. 确实命中了 (hit_gold_sf_flat 非空)
                 # 2. 该事实之前没有被命中过 (hit_tag[idx] == False) -> 避免模型重复输出同一事实刷分
                 if hit_gold_sf_flat and hit_tag[idx] == False:
                     # 3. 长度校验：模型预测（复制）的内容长度必须大于等于真实事实中最短部分的长度
-                    if len(predict_sf) >= miniemum_sf_length: 
-                        reward_across_facts[idx] = 1 # 标记该事实已解决，奖励置为 1
-                        hit_tag[idx] = True          # 更新命中标记
-        
+                    if len(predict_sf) >= miniemum_sf_length:
+                        reward_across_facts[idx] = 1  # 标记该事实已解决，奖励置为 1
+                        hit_tag[idx] = True  # 更新命中标记
+
         return reward_across_facts
 
     def __call__(
@@ -327,7 +333,7 @@ class CopyReward(ORM):
     ) -> List[float]:
         """
         计算一批样本的奖励分数。
-        
+
         Args:
             completions: 模型生成的文本列表。
             solution: 包含标准答案和支撑事实的数据列表。
@@ -351,7 +357,7 @@ class CopyReward(ORM):
             # loose模式：至少包含 1 个 evidence 标签
             is_evidence_valid = self.format_validator.validate_evidence_tags(
                 think_content=think_content,
-                at_least=facts_count if self.copy_reward_mode == 'sparse' else 1,
+                at_least=facts_count if self.copy_reward_mode == "sparse" else 1,
             )
 
             # 如果格式校验不通过（结构错误 或 evidence标签数量不足），直接给 0 分
@@ -368,21 +374,21 @@ class CopyReward(ORM):
             reward_across_facts = self._compute_supporting_facts_reward(
                 predict_sfs=predict_facts,
                 gold_sfs=facts,
-            ) 
+            )
 
             predict_count = len(predict_facts)
             gold_count = len(facts)
             hit_count = sum(reward_across_facts)
 
             # 计算 Precision 和 Recall
-            precision = hit_count / (predict_count + 1e-9) # 防止除零
+            precision = hit_count / (predict_count + 1e-9)  # 防止除零
             recall = hit_count / (gold_count + 1e-9)
 
             # 使用 F1 Score 作为奖励
             f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
 
             # 5. 按照稠密和稀疏模式，计算最终奖励
-            if self.copy_reward_mode == 'sparse':
+            if self.copy_reward_mode == "sparse":
                 # 【稀疏模式】：全对才给分
                 # 只有当命中的事实总数等于真实事实总数时，奖励为 1.0，否则为 0.0
                 if f1 == 1.0:
@@ -392,7 +398,7 @@ class CopyReward(ORM):
             else:
                 # 【稠密模式】：按比例给分
                 # 奖励分为：命中的事实数量 / 总事实数量
-                rewards.append( f1 * self.perfert_match_bonus if f1 == 1.0 else f1 )
+                rewards.append(f1 * self.perfert_match_bonus if f1 == 1.0 else f1)
 
         return rewards
 
@@ -407,7 +413,7 @@ class CopyFormatReward(ORM):
     ) -> List[float]:
         """
         计算一批样本的奖励分数。
-        
+
         Args:
             completions: 模型生成的文本列表。
             solution: 包含标准答案和支撑事实的数据列表。
@@ -423,7 +429,7 @@ class CopyFormatReward(ORM):
             is_think_answer_valid, think_content, _ = (
                 self.format_validator.validate_structure(completion)
             )
-            
+
             # 2. Evidence 标签校验
             # 检查是否包含 <evidence> 标签，且数量是否达标
             # strict模式：必须包含与真实事实数量一致的 evidence 标签
@@ -438,7 +444,6 @@ class CopyFormatReward(ORM):
                 rewards.append(0.0)
             else:
                 rewards.append(1.0)
-
 
         return rewards
 
@@ -564,36 +569,26 @@ class AnswerHitReward(ORM):
 
         return rewards
 
+
 class CopyAnswerCombinedReward(ORM):
     """
-    结合 Copy 和 Answer 的复合奖励函数（带错误惩罚机制）。
+    【优化版】复合奖励函数：加法解耦策略 (Additive Decoupling)
     
-    设计理念 (基于 #CopyPasteLRM 新想法 + 惩罚机制):
-    1. 耦合性：Answer 的奖励建立在 Copy 正确的基础上。
-    2. 鼓励机制：
-       - Copy F1 决定基础分。
-       - Answer 正确 (F1>0.8) 提供翻倍奖励 (Bonus)。
-    3. 惩罚机制 (New):
-       - 对于每一个“抄错”或“冗余”的事实 (Wrong/Redundant Facts)，扣除固定分数。
-       - 目的：抑制模型为了凑数而通过胡乱复制来“撞” F1 的行为。
-    
-    计算公式:
-       Base_Score = Copy_F1 * (1.0 + Answer_Correct_Bonus)
-       Penalty = (Predict_Count - Unique_Hit_Count) * Penalty_Weight
-       
-       Final_Reward = Base_Score - Penalty
+    设计理念：
+    1. 移除 Format_Bonus (由外部其他奖励函数负责)。
+    2. 移除 Negative Penalty (负分惩罚)，防止模型因畏惧惩罚而通过"沉默"（输出空）来最大化收益。
+    3. 采用加法逻辑：Total = (Weight_Ans * Ans_F1) + (Weight_Copy * Copy_F1)。
+       即使 Copy 全错，只要 Answer 对了，模型依然能获得正反馈。
     """
 
     def __init__(self):
-        """
-        Args:
-            wrong_penalty_weight (float): 每一个错误或冗余引用扣除的分数。默认 0.1。
-        """
         self.format_validator = FormatValidator()
-        # 复用 CopyReward 中的静态方法计算 facts 匹配度
+        # 复用 CopyReward 的计算逻辑
         self.compute_facts_logic = CopyReward._compute_supporting_facts_reward
-        self.wrong_penalty_weight = 0.1
-        self.answer_f1_perfect_threshold = 0.7
+        
+        # 权重配置
+        self.weight_answer = 1.0  # 答案是核心目标
+        self.weight_copy = 0.5    # 证据是辅助增强，权重设为 0.5，避免喧宾夺主
 
     def __call__(
         self, completions: List[str], solution: List[dict], **kwargs
@@ -601,72 +596,136 @@ class CopyAnswerCombinedReward(ORM):
         rewards = []
 
         for completion, sol in zip(completions, solution):
-            # --- 1. 基础结构校验 ---
-            is_valid_structure, think_content, answer_content = (
+            reward_score = 0.0
+            
+            # 1. 结构校验
+            # 这里的校验只决定是否继续计算分数，不负责给分。
+            _, think_content, answer_content = (
                 self.format_validator.validate_structure(completion)
             )
             
-            # 格式错误直接给0分（或者也可以给一个负分，这里保持0分）
-            if not is_valid_structure:
-                rewards.append(0.0)
-                continue
-
-            # --- 2. 计算 Copy 相关的指标 ---
-            gold_facts = sol["supporting_facts"]
-            predict_facts = self.format_validator.get_predict_facts(think_content)
-            
-            # 如果没有预测任何事实，给 0 分
-            if not predict_facts:
-                rewards.append(0.0)
-                continue
-
-            # 计算事实匹配情况 (返回的是 boolean list, 对应 gold_facts 是否被命中)
-            # 注意：这个方法只统计 Unique 的命中。重复引用同一个事实不会增加 hit_count。
-            reward_across_facts = self.compute_facts_logic(predict_facts, gold_facts)
-            
-            predict_count = len(predict_facts)
-            gold_count = len(gold_facts)
-            hit_count = sum(reward_across_facts) # 命中了多少个唯一的正确事实
-
-            # 2.1 计算 F1
-            precision = hit_count / (predict_count + 1e-9)
-            recall = hit_count / (gold_count + 1e-9)
-            copy_f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
-
-            # 2.2 计算错误/冗余引用的数量 (用于惩罚)
-            # 预测总数 - 命中正确事实数 = 没用的引用数 (可能是错的，也可能是重复的)
-            wrong_count = predict_count - hit_count
-
-            # --- 3. 计算 Answer Score ---
+            # --- Part A: Answer Reward (独立计算) ---
             gold_answers = sol["answers"]
             best_ans_f1 = 0.0
             
+            # 只要有 answer 内容，就计算 F1
             if answer_content:
                 for gold_answer in gold_answers:
                     f1, _, _ = f1_score(answer_content, gold_answer)
                     best_ans_f1 = max(best_ans_f1, f1)
+            
+            # 累加答案分数
+            reward_score += self.weight_answer * best_ans_f1
 
-            # --- 4. 融合奖励与惩罚 ---
+            # --- Part B: Copy Reward (独立计算) ---
+            gold_facts = sol["supporting_facts"]
+            copy_f1 = 0.0
             
-            # 判定答案是否正确 (阈值 > 0.8)
-            is_answer_correct = 1.0 if best_ans_f1 > self.answer_f1_perfect_threshold else 0.0
-            
-            # 基础奖励：CopyF1 * (1 + 答对奖励)
-            # 范围: [0, 2.0] (假设 F1=1.0 且答对)
-            base_reward = copy_f1 * (1.0 + is_answer_correct)
-            
-            # 惩罚项：错误数量 * 权重
-            # 例如：抄错了3条，扣 0.3 分
-            penalty = wrong_count * self.wrong_penalty_weight
-            
-            final_reward = base_reward - penalty
+            # 尝试提取 think 中的证据
+            if think_content:
+                predict_facts = self.format_validator.get_predict_facts(think_content)
+                
+                if predict_facts:
+                    # 计算命中情况
+                    reward_across_facts = self.compute_facts_logic(predict_facts, gold_facts)
+                    
+                    predict_count = len(predict_facts)
+                    gold_count = len(gold_facts)
+                    hit_count = sum(reward_across_facts)
 
-            rewards.append(final_reward)
+                    # 计算 Copy F1
+                    precision = hit_count / (predict_count + 1e-9)
+                    recall = hit_count / (gold_count + 1e-9)
+                    copy_f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
+            
+            # 累加证据分数
+            reward_score += self.weight_copy * copy_f1
+
+            rewards.append(reward_score)
 
         return rewards
 
-# 注册新的奖励函数
+
+class CurriculumCopyAnswerReward(ORM):
+    """
+    【课程学习版】复合奖励函数：环境变量控制 Evidence 权重。
+    
+    仅支持通过环境变量 `CURRICULUM_PHASE` 控制训练阶段：
+    1. export CURRICULUM_PHASE="answer_only" -> 权重为 0.0 (只学回答)
+    2. export CURRICULUM_PHASE="joint"       -> 权重为 0.5 (全量训练，默认值)
+    """
+
+    def __init__(self):
+        self.format_validator = FormatValidator()
+        self.compute_facts_logic = CopyReward._compute_supporting_facts_reward
+        
+        # === 课程配置 ===
+        self.base_ans_weight = 1.0
+        self.target_copy_weight = 0.5 
+
+    @property
+    def current_copy_weight(self) -> float:
+        """从环境变量获取当前的 Copy 权重"""
+        # 默认为 'joint' (全量模式)，防止用户忘记设置变量导致没分
+        phase = os.getenv("CURRICULUM_PHASE", "joint").lower()
+        
+        if phase == "answer_only":
+            return 0.0
+        else:
+            # joint 或其他情况，返回目标权重
+            return self.target_copy_weight
+
+    def __call__(
+        self, completions: List[str], solution: List[dict], **kwargs
+    ) -> List[float]:
+        
+        # 获取当前权重
+        copy_weight = self.current_copy_weight
+        
+        rewards = []
+        for completion, sol in zip(completions, solution):
+            reward_score = 0.0
+            
+            _, think_content, answer_content = (
+                self.format_validator.validate_structure(completion)
+            )
+            
+            # --- Part A: Answer Reward (始终开启) ---
+            gold_answers = sol["answers"]
+            best_ans_f1 = 0.0
+            if answer_content:
+                for gold_answer in gold_answers:
+                    f1, _, _ = f1_score(answer_content, gold_answer)
+                    best_ans_f1 = max(best_ans_f1, f1)
+            
+            reward_score += self.base_ans_weight * best_ans_f1
+
+            # --- Part B: Copy Reward (根据环境变量决定是否开启) ---
+            if copy_weight > 0:
+                gold_facts = sol["supporting_facts"]
+                copy_f1 = 0.0
+                
+                if think_content:
+                    predict_facts = self.format_validator.get_predict_facts(think_content)
+                    if predict_facts:
+                        reward_across_facts = self.compute_facts_logic(predict_facts, gold_facts)
+                        hit_count = sum(reward_across_facts)
+                        predict_count = len(predict_facts)
+                        gold_count = len(gold_facts)
+                        
+                        precision = hit_count / (predict_count + 1e-9)
+                        recall = hit_count / (gold_count + 1e-9)
+                        copy_f1 = 2 * (precision * recall) / (precision + recall + 1e-9)
+                
+                reward_score += copy_weight * copy_f1
+
+            rewards.append(reward_score)
+
+        return rewards
+
+# 注册
 orms["cplrm_combined"] = CopyAnswerCombinedReward
+orms["cplrm_answer_copy"] = CurriculumCopyAnswerReward
 
 orms["cplrm_format"] = FormatReward
 orms["cplrm_length"] = LengthtReward
