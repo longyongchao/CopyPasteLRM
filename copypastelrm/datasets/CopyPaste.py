@@ -4,7 +4,6 @@ import random
 from copypastelrm.datasets.BaseDatasetLoader import BaseDatasetLoader
 from copypastelrm.datasets.FaithEval import FaithEval
 from copypastelrm.datasets.HotpotQA import HotpotQA
-from copypastelrm.datasets.Qasper import Qasper
 from copypastelrm.datasets.MultiRC import MultiRC
 from copypastelrm.datasets.PopQA import PopQA
 from copypastelrm.datasets.PubMedQA import PubMedQA
@@ -20,7 +19,7 @@ class CopyPaste(BaseDatasetLoader):
         max_samples: int = -1,
         split: Literal["train", "test"] = "test",
         reload: bool = False,
-        distractor_docs: int = 1,
+        distractor_docs: int = 8,
         unanswerable: bool = False,  # 是否不包含gold context
     ):
 
@@ -28,13 +27,6 @@ class CopyPaste(BaseDatasetLoader):
 
         if split == "train":
             self.hotpotqa = HotpotQA(
-                max_samples=max_samples,
-                split="train",
-                reload=reload,
-                distractor_docs=distractor_docs,
-                unanswerable=unanswerable,
-            )
-            self.qasper = Qasper(
                 max_samples=max_samples,
                 split="train",
                 reload=reload,
@@ -86,13 +78,6 @@ class CopyPaste(BaseDatasetLoader):
             self.hotpotqa = HotpotQA(
                 max_samples=max_samples,
                 split="validation",
-                reload=reload,
-                distractor_docs=distractor_docs,
-                unanswerable=unanswerable,
-            )
-            self.qasper = Qasper(
-                max_samples=max_samples,
-                split="test",
                 reload=reload,
                 distractor_docs=distractor_docs,
                 unanswerable=unanswerable,
@@ -150,7 +135,6 @@ class CopyPaste(BaseDatasetLoader):
             dataset.extend(self.faitheval.dataset_list)
 
         dataset.extend(self.hotpotqa.dataset_list)
-        dataset.extend(self.qasper.dataset_list)
         dataset.extend(self.multirc.dataset_list)
         dataset.extend(self.popqa.dataset_list)
         dataset.extend(self.pubmedqa.dataset_list)
@@ -161,7 +145,6 @@ class CopyPaste(BaseDatasetLoader):
             print(f"FaithEval样本数: {len(self.faitheval.dataset_list)}")
 
         print(f"HotpotQA样本数: {len(self.hotpotqa.dataset_list)}")
-        print(f"Qasper样本数: {len(self.qasper.dataset_list)}")
         print(f"MultiRC样本数: {len(self.multirc.dataset_list)}")
         print(f"PopQA样本数: {len(self.popqa.dataset_list)}")
         print(f"PubMedQA样本数: {len(self.pubmedqa.dataset_list)}")

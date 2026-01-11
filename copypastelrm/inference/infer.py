@@ -270,7 +270,7 @@ def main():
     parser.add_argument("--api-key", type=str, default="sk-lqztxtcbxxoonlmsxvdhllhdnoegywnvuhfnoqnxvpphrhkh", help="API Key")
     parser.add_argument("--temperature", type=float, default=0.7, help="温度")
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
-    parser.add_argument("--distractor-docs", type=int, default=0, help="噪音文档数")
+    parser.add_argument("--distractor-docs", type=int, default=4, help="噪音文档数")
     parser.add_argument("--unanswerable", action="store_true", help="是否剔除gold context")
     parser.add_argument("--reload", action="store_true", help="是否重构数据集")
     parser.add_argument("--enable-thinking", action="store_true", help="启用思考")

@@ -21,6 +21,7 @@ required_vars=(
     DATASET_MAX_SAMPLES
     DATASET_SPLIT
     DATASET_NAME
+    NOISE_DOCS
 )
 
 for v in "${required_vars[@]}"; do
@@ -45,6 +46,7 @@ for prompt_type in "${prompt_types[@]}"; do
         --max-samples ${DATASET_MAX_SAMPLES} \
         --split ${DATASET_SPLIT} \
         --temperature ${VLLM_TEMPERATURE} \
+        --distractor-docs ${NOISE_DOCS} \
         --enable-thinking
 
 done
