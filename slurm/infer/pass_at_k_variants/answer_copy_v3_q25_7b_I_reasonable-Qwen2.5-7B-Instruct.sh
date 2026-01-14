@@ -25,12 +25,12 @@ start_time=$(date +%s)
 # 0. 设置变量
 VLLM_CONDA_ENV="vllm"
 # VLLM_CONDA_ENV="ms-swift"
-VLLM_DEVICES="2,3"
+VLLM_DEVICES="0,1,2,3"
 # VLLM_DEVICES="0,1"
-VLLM_SERVED_MODEL_NAME="0110224421-combined_v3_q25_7b_I_reasonable-Qwen2.5-7B-Instruct" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/0110224421-combined_v3_q25_7b_I_reasonable-Qwen/Qwen2.5-7B-Instruct/stage1/best"
+VLLM_SERVED_MODEL_NAME="V4-0112145512-answer_copy_v3_q25_7b_I_reasonable-Qwen2.5-7B-Instruct" # vLLM服务模型名称
+VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/V4-0112145512-answer_copy_v3_q25_7b_I_reasonable-Qwen/Qwen2.5-7B-Instruct/stage1/best"
 VLLM_MAX_L=32768
-VLLM_MAX_S=16
+VLLM_MAX_S=32
 VLLM_PORT=8124
 VLLM_TEMPERATURE=0.6
 NOISE_DOCS=8

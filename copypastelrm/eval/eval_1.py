@@ -1,11 +1,12 @@
 from typing import List
 from copypastelrm.utils.json_tools import read_json, read_jsonl_to_list
 import argparse
-# from tqdm import tqdm
 
 import numpy as np
 from copypastelrm.metrics.utils import extract_answer_and_facts, extract_answer_and_facts_old
 from copypastelrm.metrics.HotpotQA import compute_answer_em_hit_f1, update_sp
+from copypastelrm.datasets import load, AvailableDataset
+
 
 def get_pass_at_k_equal_0_subset_ids(pass_at_k_equal_0_subset_ids_paths: List[str]) -> List[int]:
     pass_at_k_equal_0_subset_ids_paths = [
@@ -36,6 +37,9 @@ def main(
 
     prompt_type = info['prompt_type']
     model_name = info['model_name']
+    dataset_name = info['dataset']
+
+    samples = load(name=AvailableDataset(dataset_name), split='test', distractor_docs=0).dataset
 
     extract_answer_and_facts_func = extract_answer_and_facts_old if prompt_type in ['copypaste', 'deepseek'] else extract_answer_and_facts
 
@@ -61,10 +65,10 @@ def main(
     distribution = {}
 
     for sample_id, item in data.items():
-        dataset = item['dataset']
+        dataset = dataset_name
         predict = item['predict']
-        gold_answers: List[str] = item['answer']
-        gold_facts = item['sfs']
+        gold_answers: List[str] = samples[sample_id]['answers']
+        gold_facts = samples[sample_id]['facts']
 
         if predict is None:
             # print(f'predict is None, dataset: {dataset}, sample_id: {sample_id}')
