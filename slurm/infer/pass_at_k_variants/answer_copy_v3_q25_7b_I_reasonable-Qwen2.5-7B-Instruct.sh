@@ -2,8 +2,8 @@
 #SBATCH --job-name=qwen3
 #SBATCH --output=/tmp/output_%j.txt
 #SBATCH --error=/tmp/error_%j.txt
-#SBATCH --partition=gpu-4090
-#SBATCH --nodelist=gpunode1
+#SBATCH --partition=gpu-a800
+#SBATCH --nodelist=gpunode3
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=00:00:00
@@ -28,15 +28,15 @@ VLLM_CONDA_ENV="vllm"
 VLLM_DEVICES="0,1,2,3"
 # VLLM_DEVICES="0,1"
 VLLM_SERVED_MODEL_NAME="V4-0112145512-answer_copy_v3_q25_7b_I_reasonable-Qwen2.5-7B-Instruct" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/V4-0112145512-answer_copy_v3_q25_7b_I_reasonable-Qwen/Qwen2.5-7B-Instruct/stage1/best"
+VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/V4-0112145512-answer_copy_v3_q25_7b_I_reasonable-Qwen/Qwen2.5-7B-Instruct/stage1/last"
 VLLM_MAX_L=32768
-VLLM_MAX_S=32
-VLLM_PORT=8124
+VLLM_MAX_S=128
+VLLM_PORT=8125
 VLLM_TEMPERATURE=0.6
 NOISE_DOCS=8
 
 # 数据集相关变量
-DATASET_NAME='ConFiQA-QA'
+DATASET_NAME='MuSiQue'
 DATASET_MAX_SAMPLES=-1
 DATASET_SPLIT="test"
 

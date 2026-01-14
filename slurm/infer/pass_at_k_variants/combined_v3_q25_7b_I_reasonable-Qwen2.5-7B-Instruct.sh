@@ -25,18 +25,18 @@ start_time=$(date +%s)
 # 0. 设置变量
 VLLM_CONDA_ENV="vllm"
 # VLLM_CONDA_ENV="ms-swift"
-VLLM_DEVICES="2,3"
+VLLM_DEVICES="0,1,2,3"
 # VLLM_DEVICES="0,1"
-VLLM_SERVED_MODEL_NAME="0110224421-combined_v3_q25_7b_I_reasonable-Qwen2.5-7B-Instruct" # vLLM服务模型名称
-VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/0110224421-combined_v3_q25_7b_I_reasonable-Qwen/Qwen2.5-7B-Instruct/stage1/best"
+VLLM_SERVED_MODEL_NAME="0110224421-combined_v3_q25_7b_I_reasonable-Qwen2.5-7B-Instruct-stage2" # vLLM服务模型名称
+VLLM_SERVED_MODEL_PATH="/mnt/lustre/DATA/longyongchao/CopyPasteLRM/checkpoint/0110224421-combined_v3_q25_7b_I_reasonable-Qwen/Qwen2.5-7B-Instruct/stage2/best"
 VLLM_MAX_L=32768
-VLLM_MAX_S=16
-VLLM_PORT=8124
+VLLM_MAX_S=32
+VLLM_PORT=8125
 VLLM_TEMPERATURE=0.6
 NOISE_DOCS=8
 
 # 数据集相关变量
-DATASET_NAME='ConFiQA-QA'
+DATASET_NAME='MuSiQue'
 DATASET_MAX_SAMPLES=-1
 DATASET_SPLIT="test"
 
@@ -84,6 +84,15 @@ kill_processes_on_gpus $VLLM_DEVICES
 
 # 5. 记录结束时间戳
 end_time=$(date +%s)
+duration=$(( (end_time - start_time) / 60 ))
 
-# 5. 发送飞书通知，将总耗时，VLLM_SERVED_MODEL_NAME, DATASET_NAME, DATASET_SPLIT, prompt_types的信息囊括
-send_feishu_msg "✅ 测试集推理完成\n总耗时: $(($end_time - $start_time)/60)分钟\nVLLM_SERVED_MODEL_NAME: $VLLM_SERVED_MODEL_NAME\nDATASET_NAME: $DATASET_NAME\nDATASET_SPLIT: $DATASET_SPLIT \n prompt_types: ${prompt_types[@]}"
+# 5. 发送飞书通知
+# 使用 $'' 字符串格式以支持 \n 换行，或者依赖 feishu 脚本的处理逻辑
+msg_content="✅ 测试集推理完成
+总耗时: ${duration} 分钟
+VLLM_SERVED_MODEL_NAME: $VLLM_SERVED_MODEL_NAME
+DATASET_NAME: $DATASET_NAME
+DATASET_SPLIT: $DATASET_SPLIT
+prompt_types: ${prompt_types[*]}"
+
+send_feishu_msg "$msg_content"

@@ -26,6 +26,7 @@ swift rlhf \
     --warmup_ratio ${GRPO_WARMUP_RATIO} \
     --dataloader_num_workers 1 \
     --max_length 32768 \
+    --create_checkpoint_symlink true \
     --max_completion_length ${GRPO_MAX_NEW_TOKENS} \
     --external_plugins train/4-CopyPasteLRM-MusiQue/reward.py \
     --reward_funcs ${REWARD_FUNCS} \
