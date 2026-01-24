@@ -24,7 +24,11 @@ datasets=(
 prompt_types=(
     # "rag"
     # "rag_rep_2"
-    "rag_rep_q"
+    # "rag_rep_q"
+    "rag_qcq"
+    # "rag_qcq2"
+    # "rag_q_int_q"
+    # "rag_q_int2_q"
     # "direct_inference"
     # "cot"
     # "ircot"

@@ -47,6 +47,38 @@ Based on the context, directly answer the above question without any additional 
 - Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
 - After the `Answer:` should contain ONLY the answer itself.
     """.strip(),
+    "rag_qcq": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    """.strip(),
+    "rag_qcq2": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    """.strip(),
+    "rag_q_int_q": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    """.strip(),
+    "rag_q_int2_q": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    """.strip(),
     "ircot": """
 Based on the context, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'.
 
@@ -121,6 +153,10 @@ def create_prompt(
         "rag",
         "rag_rep_2",
         "rag_rep_q",
+        "rag_qcq",
+        "rag_qcq2",
+        "rag_q_int_q",
+        "rag_q_int2_q",
         "ircot",
         "deepseek",
         "copypaste",
@@ -131,6 +167,9 @@ def create_prompt(
     Create system and user prompts for the given question and context.
     """
     system_prompt = SYSTEM_PROMPT[prompt_type]
+
+    # Helper template for question
+    question_template = Template("## Question\n$question")
 
     # Build prompt based on prompt_type
     if prompt_type in ["direct_inference", "cot"]:
@@ -146,10 +185,64 @@ def create_prompt(
         # Hardcoded: context once, question twice
         template = Template(context_query_prompt_template)
         part1 = template.substitute(context=context, question=question)
-        # Question only template
-        question_template = Template("## Question\n$question")
         part2 = question_template.substitute(question=question)
         user_prompt = part1 + "\n\n" + "=" * 50 + "\n\n" + part2
+    elif prompt_type == "rag_qcq":
+        # <question><context><question>
+        part1 = question_template.substitute(question=question)
+        template = Template("## Context\n$context")
+        part2 = template.substitute(context=context)
+        part3 = question_template.substitute(question=question)
+        user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3
+    elif prompt_type == "rag_qcq2":
+        # <question><context><question><question>
+        part1 = question_template.substitute(question=question)
+        template = Template("## Context\n$context")
+        part2 = template.substitute(context=context)
+        part3 = question_template.substitute(question=question)
+        part4 = question_template.substitute(question=question)
+        user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3 + "\n\n" + part4
+    elif prompt_type == "rag_q_int_q":
+        # <question><context_parts><question> (internal 25%, 75%)
+        part1 = question_template.substitute(question=question)
+        # Split context into 4 parts by newlines
+        context_lines = context.split('\n')
+        n = len(context_lines)
+        idx1 = n // 4
+        idx2 = (3 * n) // 4
+        context_parts = [
+            '\n'.join(context_lines[:idx1]),
+            '\n'.join(context_lines[idx1:idx2]),
+            '\n'.join(context_lines[idx2:]),
+        ]
+        template = Template("## Context\n$context_part")
+        part2 = template.substitute(context_part=context_parts[0])
+        part3 = question_template.substitute(question=question)
+        part4 = template.substitute(context_part=context_parts[1])
+        part5 = template.substitute(context_part=context_parts[2])
+        part6 = question_template.substitute(question=question)
+        user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3 + "\n\n" + part4 + "\n\n" + part5 + "\n\n" + part6
+    elif prompt_type == "rag_q_int2_q":
+        # <question><context_parts><question><question> (internal 25%, 75%, plus 2 at end)
+        part1 = question_template.substitute(question=question)
+        # Split context into 4 parts by newlines
+        context_lines = context.split('\n')
+        n = len(context_lines)
+        idx1 = n // 4
+        idx2 = (3 * n) // 4
+        context_parts = [
+            '\n'.join(context_lines[:idx1]),
+            '\n'.join(context_lines[idx1:idx2]),
+            '\n'.join(context_lines[idx2:]),
+        ]
+        template = Template("## Context\n$context_part")
+        part2 = template.substitute(context_part=context_parts[0])
+        part3 = question_template.substitute(question=question)
+        part4 = template.substitute(context_part=context_parts[1])
+        part5 = template.substitute(context_part=context_parts[2])
+        part6 = question_template.substitute(question=question)
+        part7 = question_template.substitute(question=question)
+        user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3 + "\n\n" + part4 + "\n\n" + part5 + "\n\n" + part6 + "\n\n" + part7
     else:
         # rag, ircot, deepseek, copypaste, find_facts: use standard context+question
         template = Template(context_query_prompt_template)
