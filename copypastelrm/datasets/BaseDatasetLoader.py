@@ -58,9 +58,9 @@ class BaseDatasetLoader(ABC):
         # -----------------------------------------------------------
         # Step 1: 加载数据
         # -----------------------------------------------------------
-        self.dataset_list, self.is_from_cache = self.get_dataset()
-        
-        if not self.dataset_list:
+        _dataset_list, self.is_from_cache = self.get_dataset()
+
+        if not _dataset_list:
             print("⚠️ Warning: Loaded dataset is empty.")
 
         # -----------------------------------------------------------
@@ -68,7 +68,7 @@ class BaseDatasetLoader(ABC):
         # -----------------------------------------------------------
         if not self.is_from_cache:
             print('正在构建 BM25 语料库...')
-            self.corpus = self.construct_corpus(self.dataset_list, is_formatted=self.is_from_cache)
+            self.corpus = self.construct_corpus(_dataset_list, is_formatted=self.is_from_cache)
             if not self.corpus:
                 print("⚠️ Warning: Corpus is empty. BM25 index will fail.")
             else:
@@ -80,20 +80,19 @@ class BaseDatasetLoader(ABC):
         # -----------------------------------------------------------
         if self.is_from_cache:
             print('✅ 检测到数据来自缓存 (Compressed)，跳过格式化步骤，直接加载。')
-            self.dataset = {sample["id"]: sample for sample in self.dataset_list}
+            self.dataset = {sample["id"]: sample for sample in _dataset_list}
         else:
             print('🔄 数据为原始格式，开始执行格式化与检索...')
-            self.dataset = self.format_dataset(self.dataset_list)
+            self.dataset = self.format_dataset(_dataset_list)
 
         # -----------------------------------------------------------
         # Step 4: 采样
         # -----------------------------------------------------------
-        if 0 < max_samples < len(self.dataset_list):
-            print(f"Sampling {max_samples} samples from {len(self.dataset_list)} total.")
-            self.dataset_list = random.sample(self.dataset_list, max_samples)
-            self.dataset = {sample["id"]: sample for sample in self.dataset_list}
+        if 0 < max_samples < len(self.dataset):
+            print(f"Sampling {max_samples} samples from {len(self.dataset)} total.")
+            sample_ids = random.sample(list(self.dataset.keys()), max_samples)
+            self.dataset = {sid: self.dataset[sid] for sid in sample_ids}
 
-        assert len(self.dataset_list) == len(self.dataset), "数据集列表和字典长度不一致"
         print('🎉 数据集准备就绪')
 
     def download_dataset(self) -> List[Dict[str, Any]]:
@@ -137,7 +136,6 @@ class BaseDatasetLoader(ABC):
     
     def format_dataset(self, origin_dataset: List[Dict[str, Any]]) -> Dict[str, Any]:
         formatted_dataset_dict = {}
-        formatted_dataset_list = []
 
         iterator = tqdm(origin_dataset, desc="Formatting dataset", unit="sample")
 
@@ -146,8 +144,7 @@ class BaseDatasetLoader(ABC):
                 formatted_sample = self.format_sample(sample)
             else:
                 formatted_sample = sample
-            
-            formatted_dataset_list.append(formatted_sample)
+
             formatted_dataset_dict[formatted_sample["id"]] = formatted_sample
 
         # [新增] 构建完成后，计算并打印统计信息
@@ -163,18 +160,20 @@ class BaseDatasetLoader(ABC):
             print("="*50 + "\n")
 
         if self.filter_empty_answer:
-            formatted_dataset_list = self.get_non_empty_answer(formatted_dataset_list)
-            formatted_dataset_dict = {sample["id"]: sample for sample in formatted_dataset_list}
-            random.shuffle(formatted_dataset_list)
-        
-        self.dataset_list = formatted_dataset_list
+            formatted_dataset_dict = {k: v for k, v in formatted_dataset_dict.items()
+                                      if v in self.get_non_empty_answer(list(formatted_dataset_dict.values()))}
+            # Shuffle the values for the cache
+            formatted_values = list(formatted_dataset_dict.values())
+            random.shuffle(formatted_values)
+        else:
+            formatted_values = list(formatted_dataset_dict.values())
 
         if self.offline and self.cache_path:
             os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
             print(f"Saving formatted dataset to compressed cache: {self.cache_path}")
             with gzip.open(self.cache_path, "wt", encoding='utf-8') as f:
                 json.dump(
-                    formatted_dataset_list,
+                    formatted_values,
                     f,
                     ensure_ascii=False,
                     indent=4,
@@ -242,7 +241,7 @@ class BaseDatasetLoader(ABC):
     def string_sub_id(id: str, idx: int) -> str:
         return f"{id}___{idx}"
 
-    def construct_corpus(self, data: List[Dict[str, Any]], is_formatted: bool = False) -> List[Dict[str, Any]]:
+    def construct_corpus(self, data: Any, is_formatted: bool = False) -> List[Dict[str, Any]]:
         global_corpus = []
         seen_texts = set()
 
@@ -305,6 +304,18 @@ class BaseDatasetLoader(ABC):
 
     def get_length(self) -> int:
         return len(self.dataset)
+
+    @property
+    def dataset_list(self) -> List[Dict[str, Any]]:
+        """Provide backward compatibility - return dataset values as list"""
+        return list(self.dataset.values())
+
+    @dataset_list.setter
+    def dataset_list(self, value: List[Dict[str, Any]]):
+        """Allow setting dataset_list for backward compatibility"""
+        # This is a no-op since we use dict internally
+        # The setter exists only to prevent AttributeError
+        pass
 
     def get_sample(self, sample_id=None) -> Dict[str, Any]:
         if not self.dataset: return None
