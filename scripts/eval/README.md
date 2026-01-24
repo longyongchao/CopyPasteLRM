@@ -25,8 +25,7 @@ python -m copypastelrm.eval.eval_folder results/infer/test/Qwen2.5-7B-Instruct/.
 ### 2.5 批量评估多个数据集
 
 ```bash
-python scripts/eval/batch_eval_compare.py \
-    --base-path results/infer/test/Qwen2.5-7B-Instruct/resamples_1000
+python scripts/eval/batch_eval_compare.py --base-path results/infer/test/Qwen2.5-7B-Instruct/resamples_1000
 ```
 
 自动评估指定路径下所有数据集的结果文件夹。
@@ -36,8 +35,8 @@ python scripts/eval/batch_eval_compare.py \
 ```bash
 python scripts/eval/compare_two_folders.py \
     results/infer/test/Qwen2.5-7B-Instruct/resamples_1000/seed_42/tpr_0.0/prompt_rag \
-    results/infer/test/Qwen2.5-7B-Instruct/resamples_1000/seed_42/tpr_0.0/prompt_rag_rep_2 \
-    --baseline-name "RAG" --compare-name "RAG×2"
+    results/infer/test/Qwen2.5-7B-Instruct/resamples_1000/seed_42/tpr_0.0/prompt_rag_rep_q \
+    --baseline-name "cq" --compare-name "cqq"
 ```
 
 输出对比表格，按 Δ EM 降序排序。
