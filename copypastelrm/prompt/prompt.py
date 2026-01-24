@@ -108,23 +108,34 @@ def create_prompt(
         "copypaste",
         "find_facts",
     ],
-) -> str:
+    repetition_count: int = 1,
+) -> tuple[str, str]:
 
     system_prompt = SYSTEM_PROMPT[prompt_type]
 
-    if prompt_type in ["direct_inference", "cot"]:
-        # 使用 substitute 替换模板中的占位符
-        template = Template(only_query_prompt_template)
-        user_prompt = template.substitute(
-            question=question,
-        )
+    # Build prompt parts based on repetition_count
+    user_parts = []
+    for _ in range(repetition_count):
+        if prompt_type in ["direct_inference", "cot"]:
+            # 使用 substitute 替换模板中的占位符
+            template = Template(only_query_prompt_template)
+            part = template.substitute(
+                question=question,
+            )
+        else:
+            # 使用 substitute 替换模板中的占位符
+            template = Template(context_query_prompt_template)
+            part = template.substitute(
+                context=context,
+                question=question,
+            )
+        user_parts.append(part)
+
+    # Join with separator
+    if repetition_count > 1:
+        user_prompt = "\n\n" + "=" * 50 + "\n\n".join(user_parts)
     else:
-        # 使用 substitute 替换模板中的占位符
-        template = Template(context_query_prompt_template)
-        user_prompt = template.substitute(
-            context=context,
-            question=question,
-        )
+        user_prompt = user_parts[0]
 
     return system_prompt, user_prompt
 
