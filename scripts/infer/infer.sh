@@ -24,15 +24,15 @@ datasets=(
 prompt_types=(
     # "direct_inference"        # 无上下文，直接回答
     # "cot"                     # 无上下文，CoT推理
-    # "rag"                     # 基础RAG
-    # "rag_rep_2"               # 上下文+问题 重复2次
-    # "rag_rep_q"               # 上下文+问题，再重复问题
-    # "rag_qcq"                 # 问题-上下文-问题
-    # "rag_qcq2"                # 问题-上下文-问题-问题
-    # "rag_q_int_q"             # 问题-上下文(带内部问题)-问题
-    # "rag_q_int2_q"            # 问题-上下文(带内部问题)-问题-问题
-    # "rag_decompressed"        # 稀疏化问题（字符间加空格）
-    # "rag_decompressed_rep_q"  # 上下文+稀疏化问题+稀疏化问题
+    "rag"                     # 基础RAG
+    "rag_rep_2"               # 上下文+问题 重复2次
+    "rag_rep_q"               # 上下文+问题，再重复问题
+    "rag_qcq"                 # 问题-上下文-问题
+    "rag_qcq2"                # 问题-上下文-问题-问题
+    "rag_q_int_q"             # 问题-上下文(带内部问题)-问题
+    "rag_q_int2_q"            # 问题-上下文(带内部问题)-问题-问题
+    "rag_decompressed"        # 稀疏化问题（字符间加空格）
+    "rag_decompressed_rep_q"  # 上下文+稀疏化问题+稀疏化问题
     # "ircot"                   # 基于上下文的CoT
     # "deepseek"                # DeepSeek风格 <|think|>/<|answer|>
     # "copypaste"               # CopyPaste风格（带证据提取）
@@ -44,7 +44,7 @@ server_url="http://localhost:8124/v1"
 num_threads=4
 # model_name="Qwen3-4B-Instruct-2507"
 model_name="Qwen2.5-7B-Instruct"
-max_samples=1000
+max_samples=1500
 split="test"
 temperature=0.0
 batch_size=16
