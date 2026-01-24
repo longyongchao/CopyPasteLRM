@@ -16,6 +16,8 @@ set -o pipefail
 source scripts/utils/vllm.sh
 source scripts/utils/gpu_port.sh
 
+sleep 30
+
 # 定义要判断的核心目录
 TARGET_DIR="/mnt/lustre/DATA/longyongchao"
 
@@ -83,7 +85,7 @@ export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_copy"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
 export REWARD_ANSWER=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[1/2]-${EXP_NAME}"
 export MAX_STEPS=-1
 
@@ -124,7 +126,7 @@ export REWARD_FUNCS="cplrm_format cplrm_length cplrm_answer_copy"
 export REWARD_FORMAT=0.1
 export REWARD_LENGTH=0.1
 export REWARD_ANSWER=0.8
-export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_COPY} ${REWARD_ANSWER}"
+export REWARD_WEIGHTS="${REWARD_FORMAT} ${REWARD_LENGTH} ${REWARD_ANSWER}"
 export SWANLAB_EXP_NAME="[2/2]-${EXP_NAME}"
 export MAX_STEPS=-1
 

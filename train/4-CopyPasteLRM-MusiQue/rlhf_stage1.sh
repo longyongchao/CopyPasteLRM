@@ -1,44 +1,6 @@
 #!/bin/bash
 set -e
 
-required_vars=(
-    STAGE1_OUTPUT_DIR
-    SWANLAB_TOKEN
-    SWANLAB_PROJECT
-    SWANLAB_EXP_NAME
-    SWANLAB_LARK_WEBHOOK_URL
-    SWANLAB_LARK_SECRET
-    MODEL_NAME
-    SAVE_STEPS
-    RLHF_NPROC_PER_NODE
-    RLHF_CUDA_VISIBLE_DEVICES_LIST
-    NUM_GENERATIONS
-    BATCH_SIZE
-    SPLIT_DATASET_RATIO
-    EVAL_STEPS
-    REWARD_FUNCS
-    REWARD_WEIGHTS
-    NUM_TRAIN_EPOCHS
-    MAX_STEPS
-    RLHF_DATASET
-    SWANLAB_MODEL
-    GRPO_TEMPERATURE
-    GRPO_BETA
-    GRPO_TOP_P
-    GRPO_MAX_NEW_TOKENS
-    GRPO_WARMUP_RATIO
-    GRPO_GRADIENT_ACCUMULATION_STEPS
-    GRPO_LEARNING_RATE
-    GRPO_SAVE_TOTAL_LIMIT
-    GRPO_EPSILON_HIGH
-)
-
-for v in "${required_vars[@]}"; do
-  if [ -z "${!v}" ]; then
-    echo "[ERROR] Environment variable $v is not set"
-    exit 1
-  fi
-done
 
 CUDA_VISIBLE_DEVICES=${RLHF_CUDA_VISIBLE_DEVICES_LIST} \
 NPROC_PER_NODE=${RLHF_NPROC_PER_NODE} \
@@ -90,9 +52,8 @@ swift rlhf \
     --beta ${GRPO_BETA} \
     --dynamic_sample true \
     --epsilon_high ${GRPO_EPSILON_HIGH} \
-    --rollout_importance_sampling_mode token_mask \
-    # --use_vllm true \
-    # --vllm_mode server \
-    # --vllm_server_host 127.0.0.1 \
-    # --vllm_server_port 8000 \
+    --use_vllm true \
+    --vllm_mode server \
+    --vllm_server_host 127.0.0.1 \
+    --vllm_server_port 8000 \
 

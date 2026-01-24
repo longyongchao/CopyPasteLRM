@@ -1,45 +1,6 @@
 #!/bin/bash
 set -e
 
-required_vars=(
-    STAGE1_OUTPUT_DIR
-    STAGE2_OUTPUT_DIR
-    SWANLAB_TOKEN
-    SWANLAB_PROJECT
-    SWANLAB_EXP_NAME
-    SWANLAB_LARK_WEBHOOK_URL
-    SWANLAB_LARK_SECRET
-    MODEL_NAME
-    SAVE_STEPS
-    RLHF_NPROC_PER_NODE
-    RLHF_CUDA_VISIBLE_DEVICES_LIST
-    NUM_GENERATIONS
-    BATCH_SIZE
-    SPLIT_DATASET_RATIO
-    REWARD_FUNCS
-    REWARD_WEIGHTS
-    NUM_TRAIN_EPOCHS
-    MAX_STEPS
-    RLHF_DATASET
-    SWANLAB_MODEL
-    GRPO_TEMPERATURE
-    GRPO_BETA
-    GRPO_TOP_P
-    GRPO_MAX_NEW_TOKENS
-    GRPO_WARMUP_RATIO
-    GRPO_GRADIENT_ACCUMULATION_STEPS
-    GRPO_LEARNING_RATE
-    GRPO_SAVE_TOTAL_LIMIT
-    GRPO_EPSILON_HIGH
-)
-
-for v in "${required_vars[@]}"; do
-  if [ -z "${!v}" ]; then
-    echo "[ERROR] Environment variable $v is not set"
-    exit 1
-  fi
-done
-
 CUDA_VISIBLE_DEVICES=${RLHF_CUDA_VISIBLE_DEVICES_LIST} \
 NPROC_PER_NODE=${RLHF_NPROC_PER_NODE} \
 swift rlhf \
@@ -65,6 +26,7 @@ swift rlhf \
     --warmup_ratio ${GRPO_WARMUP_RATIO} \
     --dataloader_num_workers 1 \
     --max_length 32768 \
+    --create_checkpoint_symlink true \
     --max_completion_length ${GRPO_MAX_NEW_TOKENS} \
     --external_plugins train/4-CopyPasteLRM-MusiQue/reward.py \
     --reward_funcs ${REWARD_FUNCS} \
@@ -96,4 +58,3 @@ swift rlhf \
     --vllm_mode server \
     --vllm_server_host 127.0.0.1 \
     --vllm_server_port 8000 \
-    --rollout_importance_sampling_mode token_mask \

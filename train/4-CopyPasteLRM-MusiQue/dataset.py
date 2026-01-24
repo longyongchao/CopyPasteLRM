@@ -43,7 +43,7 @@ class DeepSeekR1Preprocessor(ResponsePreprocessor):
     def __init__(self, system_prompt: Literal["deepseek", "copypaste"], columns: dict):
         super().__init__(columns=columns)
 
-        musique_dataloader = MuSiQue(split='train')
+        musique_dataloader = MuSiQue(split='train', distractor_docs=2)
         self.musique = musique_dataloader.dataset
         self.user_template = Template(user_prompt_template)
         self.system_prompt = system_prompt
@@ -54,11 +54,11 @@ class DeepSeekR1Preprocessor(ResponsePreprocessor):
 
         query = item["query"]
         context = item["context"]
-        answer = item["answer"]
+        answers = item["answers"]
 
-        sfs = item["sfs"]
-        sfs_processor = StringContainmentFilter(sfs)
-        filtered_sfs = sfs_processor.filter_maximal_superstrings()
+        facts = item["facts"]
+        sfs_processor = StringContainmentFilter(facts)
+        filtered_facts = sfs_processor.filter_maximal_superstrings()
 
         row.update(
             {
@@ -67,14 +67,14 @@ class DeepSeekR1Preprocessor(ResponsePreprocessor):
                     context=context,
                     question=query,
                 ),
-                "supporting_facts": filtered_sfs,
-                "answer_candidates": answer,
+                "supporting_facts": filtered_facts,
+                "answer_candidates": answers,
                 "context": context,
                 "dataset": 'MuSiQue',
                 "solution": {
                     "context": context,
-                    "supporting_facts": [split_sentences_spacy(sfs) for sfs in filtered_sfs],
-                    "answers": answer,
+                    "supporting_facts": [split_sentences_spacy(fact) for fact in filtered_facts],
+                    "answers": answers,
                     "dataset": 'MuSiQue',
                     "id": _id,
                 }
@@ -83,31 +83,31 @@ class DeepSeekR1Preprocessor(ResponsePreprocessor):
         return super().preprocess(row)  # type: ignore[return-value]
 
 
-register_dataset(
-    DatasetMeta(
-        dataset_path="train/4-CopyPasteLRM-MusiQue/trainset/Qwen3_4B_I-musique_128_without_2hop.jsonl",
-        dataset_name="Qwen3-4B-I_MusiQue_128_without_2hop_copypaste",
-        preprocess_func=DeepSeekR1Preprocessor(
-            system_prompt="copypaste",
-            columns={
-                "solution": "solution",
-            }
-        ),
-    )
-)
+# register_dataset(
+#     DatasetMeta(
+#         dataset_path="train/4-CopyPasteLRM-MusiQue/trainset/Qwen3_4B_I-musique_128_without_2hop.jsonl",
+#         dataset_name="Qwen3-4B-I_MusiQue_128_without_2hop_copypaste",
+#         preprocess_func=DeepSeekR1Preprocessor(
+#             system_prompt="copypaste",
+#             columns={
+#                 "solution": "solution",
+#             }
+#         ),
+#     )
+# )
 
-register_dataset(
-    DatasetMeta(
-        dataset_path="train/4-CopyPasteLRM-MusiQue/trainset/Qwen3_4B_I-musique_128_without_2hop.jsonl",
-        dataset_name="Qwen3-4B-I_MusiQue_128_without_2hop_deepseek",
-        preprocess_func=DeepSeekR1Preprocessor(
-            system_prompt="deepseek",
-            columns={
-                "solution": "solution",
-            }
-        ),
-    )
-)
+# register_dataset(
+#     DatasetMeta(
+#         dataset_path="train/4-CopyPasteLRM-MusiQue/trainset/Qwen3_4B_I-musique_128_without_2hop.jsonl",
+#         dataset_name="Qwen3-4B-I_MusiQue_128_without_2hop_deepseek",
+#         preprocess_func=DeepSeekR1Preprocessor(
+#             system_prompt="deepseek",
+#             columns={
+#                 "solution": "solution",
+#             }
+#         ),
+#     )
+# )
 
 register_dataset(
     DatasetMeta(
@@ -122,22 +122,22 @@ register_dataset(
     )
 )
 
-register_dataset(
-    DatasetMeta(
-        dataset_path="train/4-CopyPasteLRM-MusiQue/trainset/Qwen3_4B_I-musique_128_without_2hop_reasonable.jsonl",
-        dataset_name="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_deepseek",
-        preprocess_func=DeepSeekR1Preprocessor(
-            system_prompt="deepseek",
-            columns={
-                "solution": "solution",
-            }
-        ),
-    )
-)
+# register_dataset(
+#     DatasetMeta(
+#         dataset_path="train/4-CopyPasteLRM-MusiQue/trainset/Qwen3_4B_I-musique_128_without_2hop_reasonable.jsonl",
+#         dataset_name="Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_deepseek",
+#         preprocess_func=DeepSeekR1Preprocessor(
+#             system_prompt="deepseek",
+#             columns={
+#                 "solution": "solution",
+#             }
+#         ),
+#     )
+# )
 
 if __name__ == "__main__":
     dataset = load_dataset(
-        ["Qwen3-4B-I_MusiQue_128_without_2hop_deepseek"], remove_unused_columns=False, download_mode="force_redownload"
+        ["Qwen3-4B-I_MusiQue_128_without_2hop_reasonable_copypaste"], remove_unused_columns=False, download_mode="force_redownload"
     )
 
     print(f"dataset: {dataset}")

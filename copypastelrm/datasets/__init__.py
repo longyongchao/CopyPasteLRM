@@ -7,12 +7,14 @@ from .PubMedQA import PubMedQA
 from .TwoWikiMultiHopQA import TwoWikiMultihopQA
 from .MuSiQue import MuSiQue
 from .ConFiQA import ConFiQA
+from .CopyPaste import CopyPaste
 
 from typing import Literal
 from enum import Enum
 from enum import Enum
 
 class AvailableDataset(Enum):
+    COPYPASTE = "CopyPaste"
     FAITHEVAL = "FaithEval"
     HOTPOTQA = "HotpotQA"
     MULTIRC = "MultiRC"
@@ -149,6 +151,14 @@ def load(
         return ConFiQA(
             subset="MR",
             split="original",
+            reload=reload,
+            max_samples=max_samples,
+            distractor_docs=distractor_docs,
+            unanswerable=unanswerable,
+        )
+    elif name == AvailableDataset.COPYPASTE:
+        return CopyPaste(
+            split="train" if split == "train" else "test",
             reload=reload,
             max_samples=max_samples,
             distractor_docs=distractor_docs,
