@@ -31,6 +31,22 @@ Based on the context, directly answer the above question without any additional 
 - Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
 - After the `Answer:` should contain ONLY the answer itself.
     """.strip(),
+    "rag_rep_2": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    """.strip(),
+    "rag_rep_q": """
+Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+    """.strip(),
     "ircot": """
 Based on the context, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'.
 
@@ -48,7 +64,7 @@ A conversation between User and Assistant. The user asks a question, and the Ass
 - The <|answer|> tag should contain ONLY the answer itself.
 
 ## Example of Desired Style
-<|think|>After analyzing the test results, I observe that the patient’s white blood cell count has increased by 30% following antibiotic therapy—this points to progress in controlling the infection. That said, their C-reactive protein level has only dropped by 10%, so the inflammatory response may not have eased notably.</|think|>
+<|think|>After analyzing the test results, I observe that the patient's white blood cell count has increased by 30% following antibiotic therapy—this points to progress in controlling the infection. That said, their C-reactive protein level has only dropped by 10%, so the inflammatory response may not have eased notably.</|think|>
 <|answer|>inflammation lingers</|answer|>
 """.strip(),
     "copypaste": """A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|><|answer|> answer here </|answer|>.
@@ -103,39 +119,41 @@ def create_prompt(
         "direct_inference",
         "cot",
         "rag",
+        "rag_rep_2",
+        "rag_rep_q",
         "ircot",
         "deepseek",
         "copypaste",
         "find_facts",
     ],
-    repetition_count: int = 1,
 ) -> tuple[str, str]:
-
+    """
+    Create system and user prompts for the given question and context.
+    """
     system_prompt = SYSTEM_PROMPT[prompt_type]
 
-    # Build prompt parts based on repetition_count
-    user_parts = []
-    for _ in range(repetition_count):
-        if prompt_type in ["direct_inference", "cot"]:
-            # 使用 substitute 替换模板中的占位符
-            template = Template(only_query_prompt_template)
-            part = template.substitute(
-                question=question,
-            )
-        else:
-            # 使用 substitute 替换模板中的占位符
-            template = Template(context_query_prompt_template)
-            part = template.substitute(
-                context=context,
-                question=question,
-            )
-        user_parts.append(part)
-
-    # Join with separator
-    if repetition_count > 1:
-        user_prompt = "\n\n" + "=" * 50 + "\n\n".join(user_parts)
+    # Build prompt based on prompt_type
+    if prompt_type in ["direct_inference", "cot"]:
+        template = Template(only_query_prompt_template)
+        user_prompt = template.substitute(question=question)
+    elif prompt_type == "rag_rep_2":
+        # Hardcoded: repeat context+question twice
+        template = Template(context_query_prompt_template)
+        part1 = template.substitute(context=context, question=question)
+        part2 = template.substitute(context=context, question=question)
+        user_prompt = part1 + "\n\n" + "=" * 50 + "\n\n" + part2
+    elif prompt_type == "rag_rep_q":
+        # Hardcoded: context once, question twice
+        template = Template(context_query_prompt_template)
+        part1 = template.substitute(context=context, question=question)
+        # Question only template
+        question_template = Template("## Question\n$question")
+        part2 = question_template.substitute(question=question)
+        user_prompt = part1 + "\n\n" + "=" * 50 + "\n\n" + part2
     else:
-        user_prompt = user_parts[0]
+        # rag, ircot, deepseek, copypaste, find_facts: use standard context+question
+        template = Template(context_query_prompt_template)
+        user_prompt = template.substitute(context=context, question=question)
 
     return system_prompt, user_prompt
 

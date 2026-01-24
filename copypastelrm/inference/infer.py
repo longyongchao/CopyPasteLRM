@@ -309,7 +309,6 @@ def process_single_sample(
     llm_server: LLMServer,
     model_name: str,
     prompt_type: str,
-    repetition_count: int,
     temperature: float,
     enable_thinking: bool = False,
 ) -> Tuple[str, str]:
@@ -318,7 +317,7 @@ def process_single_sample(
 
     try:
         system_prompt, user_prompt = create_prompt(
-            sample["query"], sample["context"], prompt_type, repetition_count
+            sample["query"], sample["context"], prompt_type
         )
 
         predict = llm_server.call(
@@ -344,7 +343,6 @@ def process_batch(
     llm_server: LLMServer,
     model_name: str,
     prompt_type: str,
-    repetition_count: int,
     temperature: float,
     enable_thinking: bool = False,
 ) -> Dict[str, str]:
@@ -356,7 +354,6 @@ def process_batch(
         llm_server: LLM服务器实例
         model_name: 模型名称
         prompt_type: 提示类型
-        repetition_count: 提示重复次数
         temperature: 温度参数
         enable_thinking: 是否启用思考模式
 
@@ -375,7 +372,7 @@ def process_batch(
 
         try:
             system_prompt, user_prompt = create_prompt(
-                sample["query"], sample["context"], prompt_type, repetition_count
+                sample["query"], sample["context"], prompt_type
             )
             user_prompts.append(user_prompt)
             system_prompts.append(system_prompt)
@@ -428,7 +425,6 @@ def run_inference(
     reload: bool = False,
     overwrite: bool = False,
     save_interval_samples: int = 10,
-    repetition_count: int = 1,
 ):
     # 1. 初始化 LLMServer
     llm_server = LLMServer(base_url=server_url, api_key=api_key)
@@ -458,7 +454,7 @@ def run_inference(
 
     # 快照用于记录
     system_prompt_snapshot, user_prompt_snapshot = create_prompt(
-        "示例问题", "示例上下文", prompt_type, repetition_count
+        "示例问题", "示例上下文", prompt_type
     )
 
     # Prepare experiment info
@@ -481,7 +477,6 @@ def run_inference(
         "是否剔除金标上下文": unanswerable,
         "是否重启了数据集构建": reload,
         "是否覆盖重跑": overwrite,
-        "repetition_count": repetition_count,
     }
 
     # Initialize SampleSaver
@@ -517,12 +512,6 @@ def run_inference(
 
     print(f"本次需推理 {len(remaining_dataset)} 个样本，使用 {num_threads} 个线程，批次大小 {batch_size}")
 
-    # Warning for token usage when repetition is enabled
-    if repetition_count > 1:
-        print(f"⚠️ Prompt repetition enabled (count={repetition_count})")
-        print(f"   This will approximately {repetition_count}x the token usage per sample")
-        print(f"   Consider reducing --batch-size if OOM occurs")
-
     try:
         # 分批处理数据集
         batches = []
@@ -542,7 +531,6 @@ def run_inference(
                         llm_server,
                         model_name,
                         prompt_type,
-                        repetition_count,
                         temperature,
                         enable_thinking,
                     )] = batch
@@ -554,7 +542,6 @@ def run_inference(
                         llm_server,
                         model_name,
                         prompt_type,
-                        repetition_count,
                         temperature,
                         enable_thinking,
                     )] = batch
@@ -627,8 +614,8 @@ def main():
     parser.add_argument("--model-name", type=str, required=True, help="模型名称")
     parser.add_argument("--max-samples", type=int, default=-1, help="最大处理样本数")
     parser.add_argument("--num-threads", type=int, default=4, help="并行线程数")
-    parser.add_argument("--prompt-type", type=str, default="direct", 
-                        choices=["direct_inference", "cot", "rag", "ircot", "deepseek", "copypaste", "find_facts"], 
+    parser.add_argument("--prompt-type", type=str, default="direct",
+                        choices=["direct_inference", "cot", "rag", "rag_rep_2", "rag_rep_q", "ircot", "deepseek", "copypaste", "find_facts"],
                         help="提示模板选择")
     parser.add_argument("--dataset", type=str, default=AvailableDataset.HOTPOTQA.value,
                         choices=[e.value for e in AvailableDataset], help="数据集名称")
@@ -645,7 +632,6 @@ def main():
     parser.add_argument("--overwrite", action="store_true", help="如果输出文件存在，是否强制覆盖（默认：否，即进行断点续传）")
     parser.add_argument("--batch-size", type=int, default=1, help="批量推理时的批次大小（默认：1，即单个样本处理）")
     parser.add_argument("--save-interval-samples", type=int, default=10, help="每隔N个样本保存一次检查点（默认：10）")
-    parser.add_argument("--repetition-count", type=int, default=1, help="Number of times to repeat context+question (default: 1, no repetition)")
 
     args = parser.parse_args()
 
@@ -656,8 +642,7 @@ def main():
 
     # 输出目录（不带 .json 扩展名）
     model_name_clean = args.model_name.replace("/", "_").replace(" ", "_")
-    rep_suffix = f"_rep_{args.repetition_count}" if args.repetition_count > 1 else ""
-    output_dir = f"results/infer/{args.split}/{model_name_clean}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}/prompt_{args.prompt_type.replace(' ', '_')}{rep_suffix}/{args.dataset}-noise_{args.distractor_docs}-{'unanswerable' if args.unanswerable else 'answerable'}/{timestamp_folder}"
+    output_dir = f"results/infer/{args.split}/{model_name_clean}/resamples_{args.max_samples}/seed_{args.seed}/tpr_{args.temperature}/prompt_{args.prompt_type.replace(' ', '_')}/{args.dataset}-noise_{args.distractor_docs}-{'unanswerable' if args.unanswerable else 'answerable'}/{timestamp_folder}"
 
     run_inference(
         server_url=args.server_url,
@@ -677,7 +662,6 @@ def main():
         reload=args.reload,
         overwrite=args.overwrite,
         save_interval_samples=args.save_interval_samples,
-        repetition_count=args.repetition_count,
     )
 
 if __name__ == "__main__":
