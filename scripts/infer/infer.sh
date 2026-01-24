@@ -20,20 +20,23 @@ datasets=(
 # datasets=("copypaste")
 
 # 定义要循环的 prompt_type 列表
-# prompt_types=("reasoning_with_copypaste")
+# 可用类型：direct_inference, cot, rag, rag_rep_2, rag_rep_q, rag_qcq, rag_qcq2, rag_q_int_q, rag_q_int2_q, rag_decompressed, rag_decompressed_rep_q, ircot, deepseek, copypaste, find_facts
 prompt_types=(
-    # "rag"
-    # "rag_rep_2"
-    # "rag_rep_q"
-    "rag_qcq"
-    # "rag_qcq2"
-    # "rag_q_int_q"
-    # "rag_q_int2_q"
-    # "direct_inference"
-    # "cot"
-    # "ircot"
-    # "deepseek"
-    # "copypaste"
+    # "direct_inference"        # 无上下文，直接回答
+    # "cot"                     # 无上下文，CoT推理
+    # "rag"                     # 基础RAG
+    # "rag_rep_2"               # 上下文+问题 重复2次
+    # "rag_rep_q"               # 上下文+问题，再重复问题
+    # "rag_qcq"                 # 问题-上下文-问题
+    # "rag_qcq2"                # 问题-上下文-问题-问题
+    # "rag_q_int_q"             # 问题-上下文(带内部问题)-问题
+    # "rag_q_int2_q"            # 问题-上下文(带内部问题)-问题-问题
+    # "rag_decompressed"        # 稀疏化问题（字符间加空格）
+    # "rag_decompressed_rep_q"  # 上下文+稀疏化问题+稀疏化问题
+    # "ircot"                   # 基于上下文的CoT
+    # "deepseek"                # DeepSeek风格 <|think|>/<|answer|>
+    # "copypaste"               # CopyPaste风格（带证据提取）
+    # "find_facts"              # 提取事实任务
 )
 
 server_url="http://localhost:8124/v1"

@@ -4,89 +4,55 @@ from string import Template
 from copypastelrm.datasets import load, AvailableDataset
 
 
+# 基础系统提示词模板
+_ANSWER_FORMAT_INSTRUCTIONS = """
+## IMPORTANT:
+- The content after `Answer:` must be a direct answer to the question.
+- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
+- After the `Answer:` should contain ONLY the answer itself.
+""".strip()
+
+# 系统提示词工厂函数
+def _create_direct_answer_prompt(prefix: str = "") -> str:
+    """创建直接回答类型的系统提示词"""
+    base = "Directly answer the above question without any additional explanation in the exact format 'Answer: xyz'."
+    if prefix:
+        return f"{prefix}\n\n{base}\n\n{_ANSWER_FORMAT_INSTRUCTIONS}"
+    return f"{base}\n\n{_ANSWER_FORMAT_INSTRUCTIONS}"
+
+def _create_cot_prompt(prefix: str = "") -> str:
+    """创建CoT类型的系统提示词"""
+    base = "First, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'."
+    if prefix:
+        return f"{prefix}\n\n{base}\n\n{_ANSWER_FORMAT_INSTRUCTIONS}"
+    return f"{base}\n\n{_ANSWER_FORMAT_INSTRUCTIONS}"
+
+# 所有使用 RAG 格式的提示类型（基于上下文直接回答）
+_RAG_PROMPT = _create_direct_answer_prompt("Based on the context,")
+
+# 所有使用 RAG CoT 格式的提示类型（基于上下文的CoT）
+_RAG_COT_PROMPT = _create_cot_prompt("Based on the context,")
+
 SYSTEM_PROMPT = {
-    # 适用于推理模型的CoT
-    "direct_inference": """
-Directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+    # 适用于推理模型（无上下文）
+    "direct_inference": _create_direct_answer_prompt(),
+    "cot": _create_cot_prompt(),
 
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "cot": """
-First, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'.
+    # 适用于通用模型（基于上下文直接回答）- 所有 RAG 变体共用
+    "rag": _RAG_PROMPT,
+    "rag_rep_2": _RAG_PROMPT,
+    "rag_rep_q": _RAG_PROMPT,
+    "rag_qcq": _RAG_PROMPT,
+    "rag_qcq2": _RAG_PROMPT,
+    "rag_q_int_q": _RAG_PROMPT,
+    "rag_q_int2_q": _RAG_PROMPT,
+    "rag_decompressed": _RAG_PROMPT,
+    "rag_decompressed_rep_q": _RAG_PROMPT,
 
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-""".strip(),
-    # 适用于通用模型
-    "rag": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
+    # 基于上下文的 CoT
+    "ircot": _RAG_COT_PROMPT,
 
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "rag_rep_2": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "rag_rep_q": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "rag_qcq": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "rag_qcq2": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "rag_q_int_q": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "rag_q_int2_q": """
-Based on the context, directly answer the above question without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-    """.strip(),
-    "ircot": """
-Based on the context, let's think step by step about the above question, provide your thinking process, and then give your final answer without any additional explanation in the exact format 'Answer: xyz'.
-
-## IMPORTANT:
-- The content after `Answer:` must be a direct answer to the question.
-- Do NOT include any explanation, reasoning, justification, or extra words after `Answer:`.
-- After the `Answer:` should contain ONLY the answer itself.
-""".strip(),
+    # DeepSeek 风格（特殊格式）
     "deepseek": """
 A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|> <|answer|> answer here </|answer|>.
 
@@ -97,8 +63,10 @@ A conversation between User and Assistant. The user asks a question, and the Ass
 
 ## Example of Desired Style
 <|think|>After analyzing the test results, I observe that the patient's white blood cell count has increased by 30% following antibiotic therapy—this points to progress in controlling the infection. That said, their C-reactive protein level has only dropped by 10%, so the inflammatory response may not have eased notably.</|think|>
-<|answer|>inflammation lingers</|answer|>
+<|answer|>inflammation lingers</|answer|
 """.strip(),
+
+    # CopyPaste 风格（带证据提取）
     "copypaste": """A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <|think|> </|think|> and <|answer|> </|answer|> tags, respectively, i.e., <|think|> reasoning process here </|think|><|answer|> answer here </|answer|>.
 
 ## IMPORTANT:
@@ -114,6 +82,8 @@ A conversation between User and Assistant. The user asks a question, and the Ass
 ## Example of Desired Style
 <|think|>Upon reviewing the test results, I notice that <|EVIDENCE|>the patient's white blood cell count rose by 30% after antibiotic treatment</|EVIDENCE|>, which suggests infection control progress. However, since <|EVIDENCE|>their C-reactive protein level only decreased by 10%</|EVIDENCE|>, the inflammatory response might not have subsided significantly.</|think|>
 <|answer|>inflammation lingers</|answer|>""".strip(),
+
+    # 提取事实任务
     "find_facts": """
 Based on the provided context, identify and extract all specific facts or sentences that are helpful or necessary to answer the question.
 
@@ -157,6 +127,8 @@ def create_prompt(
         "rag_qcq2",
         "rag_q_int_q",
         "rag_q_int2_q",
+        "rag_decompressed",
+        "rag_decompressed_rep_q",
         "ircot",
         "deepseek",
         "copypaste",
@@ -243,6 +215,20 @@ def create_prompt(
         part6 = question_template.substitute(question=question)
         part7 = question_template.substitute(question=question)
         user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3 + "\n\n" + part4 + "\n\n" + part5 + "\n\n" + part6 + "\n\n" + part7
+    elif prompt_type == "rag_decompressed":
+        # Decompress question by adding spaces between characters
+        decompressed_question = ' '.join(question)
+        template = Template(context_query_prompt_template)
+        user_prompt = template.substitute(context=context, question=decompressed_question)
+    elif prompt_type == "rag_decompressed_rep_q":
+        # <context><decompressed_question><decompressed_question>
+        decompressed_question = ' '.join(question)
+        template = Template("## Context\n$context")
+        part1 = template.substitute(context=context)
+        question_template = Template("## Question\n$question")
+        part2 = question_template.substitute(question=decompressed_question)
+        part3 = question_template.substitute(question=decompressed_question)
+        user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3
     else:
         # rag, ircot, deepseek, copypaste, find_facts: use standard context+question
         template = Template(context_query_prompt_template)
