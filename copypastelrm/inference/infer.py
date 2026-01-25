@@ -615,7 +615,7 @@ def main():
     parser.add_argument("--max-samples", type=int, default=-1, help="最大处理样本数")
     parser.add_argument("--num-threads", type=int, default=4, help="并行线程数")
     parser.add_argument("--prompt-type", type=str, default="direct",
-                        choices=["direct_inference", "cot", "rag", "rag_rep_2", "rag_rep_q", "rag_qcq", "rag_qcq2", "rag_q_int_q", "rag_q_int2_q", "rag_decompressed", "rag_decompressed_rep_q", "ircot", "deepseek", "copypaste", "find_facts"],
+                        choices=["direct_inference", "cot", "rag", "rag_rep_2", "rag_rep_q", "rag_qcq", "rag_qcq2", "rag_q_int_q", "rag_q_int2_q", "rag_q_int_docs_q", "rag_decompressed", "rag_decompressed_rep_q", "ircot", "deepseek", "copypaste", "find_facts"],
                         help="提示模板选择")
     parser.add_argument("--dataset", type=str, default=AvailableDataset.HOTPOTQA.value,
                         choices=[e.value for e in AvailableDataset], help="数据集名称")

@@ -51,6 +51,7 @@ SYSTEM_PROMPT = {
 
     # 基于上下文的 CoT
     "ircot": _RAG_COT_PROMPT,
+    "rag_q_int_docs_q": _RAG_PROMPT,  # 文档交错问题类型
 
     # DeepSeek 风格（特殊格式）
     "deepseek": """
@@ -127,6 +128,7 @@ def create_prompt(
         "rag_qcq2",
         "rag_q_int_q",
         "rag_q_int2_q",
+        "rag_q_int_docs_q",
         "rag_decompressed",
         "rag_decompressed_rep_q",
         "ircot",
@@ -215,6 +217,31 @@ def create_prompt(
         part6 = question_template.substitute(question=question)
         part7 = question_template.substitute(question=question)
         user_prompt = part1 + "\n\n" + part2 + "\n\n" + part3 + "\n\n" + part4 + "\n\n" + part5 + "\n\n" + part6 + "\n\n" + part7
+    elif prompt_type == "rag_q_int_docs_q":
+        # <question><Document 1><question><Document 2><question>...<question><question>
+        # Parse documents from context (separated by "\n\n")
+        documents = [doc.strip() for doc in context.split("\n\n") if doc.strip()]
+
+        # Build interleaved prompt
+        parts = []
+        question_template = Template("## Question\n$question")
+
+        # Start with question
+        parts.append(question_template.substitute(question=question))
+
+        # Interleave: Document 1, Question, Document 2, Question, ...
+        for i, doc in enumerate(documents, 1):
+            # Add document with label
+            doc_template = Template("Document $i\n$document")
+            parts.append(doc_template.substitute(i=i, document=doc))
+
+            # Add question after each document
+            parts.append(question_template.substitute(question=question))
+
+        # Final question at the end
+        parts.append(question_template.substitute(question=question))
+
+        user_prompt = "\n\n".join(parts)
     elif prompt_type == "rag_decompressed":
         # Decompress question by adding spaces between characters
         decompressed_question = ' '.join(question)

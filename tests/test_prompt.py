@@ -74,6 +74,24 @@ def single_line_context():
 
 
 @pytest.fixture
+def two_document_context():
+    """两个文档的上下文"""
+    return "###PARIS\nParis is the capital city\n\n###LONDON\nLondon is in England"
+
+
+@pytest.fixture
+def three_document_context():
+    """三个文档的上下文"""
+    return "###PARIS\nParis\n\n###LONDON\nLondon\n\n###TOKYO\nTokyo"
+
+
+@pytest.fixture
+def single_document_context():
+    """单个文档的上下文"""
+    return "###PARIS\nParis is the capital city"
+
+
+@pytest.fixture
 def context_with_special_chars():
     """包含特殊字符的上下文"""
     return "Price: $100, Discount: 20%, Date: 2024-01-15"
@@ -105,12 +123,12 @@ def whitespace_only_string():
 
 @pytest.fixture
 def all_prompt_types():
-    """所有15种prompt类型"""
+    """所有16种prompt类型"""
     return [
         "direct_inference", "cot",
         "rag", "rag_rep_2", "rag_rep_q",
         "rag_qcq", "rag_qcq2",
-        "rag_q_int_q", "rag_q_int2_q",
+        "rag_q_int_q", "rag_q_int2_q", "rag_q_int_docs_q",
         "rag_decompressed", "rag_decompressed_rep_q",
         "ircot", "deepseek", "copypaste", "find_facts"
     ]
@@ -122,7 +140,7 @@ def rag_prompt_types():
     return [
         "rag", "rag_rep_2", "rag_rep_q",
         "rag_qcq", "rag_qcq2",
-        "rag_q_int_q", "rag_q_int2_q",
+        "rag_q_int_q", "rag_q_int2_q", "rag_q_int_docs_q",
         "rag_decompressed", "rag_decompressed_rep_q"
     ]
 
@@ -1180,7 +1198,12 @@ class TestEdgeCases:
         """测试RAG类型的空context处理"""
         for prompt_type in rag_prompt_types:
             system_prompt, user_prompt = create_prompt("Test?", "", prompt_type)
-            assert "## Context" in user_prompt
+            # rag_q_int_docs_q 使用不同的格式（Document 1, Document 2 等），不包含 ## Context
+            if prompt_type == "rag_q_int_docs_q":
+                # 对于 rag_q_int_docs_q，应该有问题在空上下文时
+                assert "## Question" in user_prompt
+            else:
+                assert "## Context" in user_prompt
 
     def test_both_empty_rag_types(self, rag_prompt_types):
         """测试RAG类型的context和question都为空"""
@@ -1424,3 +1447,182 @@ class TestPromptStructure:
         system_prompt, user_prompt = create_prompt("Test?", "context", prompt_type)
         assert "## Context" not in user_prompt
 
+
+# ============================================================================
+# TestRAGDocumentInterleavedPrompts - 测试文档交错类型
+# ============================================================================
+
+class TestRAGDocumentInterleavedPrompts:
+    """测试文档交错类型（rag_q_int_docs_q）"""
+
+    def test_rag_q_int_docs_q_two_documents_structure(self):
+        """验证两个文档的交错结构：Q → Doc1 → Q → Doc2 → Q → Q"""
+        question = "What is the capital?"
+        context = "###PARIS\nParis is the capital city\n\n###LONDON\nLondon is in England"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证问题数量：起始1个 + 每个文档后1个(2个) + 结尾1个 = 4个
+        assert user_prompt.count("## Question") == 4
+
+        # 验证文档标签
+        assert "Document 1" in user_prompt
+        assert "Document 2" in user_prompt
+
+        # 验证文档内容保留
+        assert "###PARIS" in user_prompt
+        assert "###LONDON" in user_prompt
+
+        # 验证问题内容
+        assert question in user_prompt
+
+    def test_rag_q_int_docs_q_three_documents_structure(self):
+        """验证三个文档的交错结构：Q → Doc1 → Q → Doc2 → Q → Doc3 → Q → Q"""
+        question = "Test question?"
+        context = "###PARIS\nParis\n\n###LONDON\nLondon\n\n###TOKYO\nTokyo"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证问题数量：起始1个 + 每个文档后1个(3个) + 结尾1个 = 5个
+        assert user_prompt.count("## Question") == 5
+
+        # 验证所有文档标签
+        assert "Document 1" in user_prompt
+        assert "Document 2" in user_prompt
+        assert "Document 3" in user_prompt
+
+    def test_rag_q_int_docs_q_single_document(self):
+        """验证单个文档的处理：Q → Doc1 → Q → Q"""
+        question = "Test question?"
+        context = "###PARIS\nParis is the capital city"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证问题数量：起始1个 + 文档后1个 + 结尾1个 = 3个
+        assert user_prompt.count("## Question") == 3
+
+        # 验证文档标签
+        assert "Document 1" in user_prompt
+        assert "Document 2" not in user_prompt
+
+        # 验证文档内容保留
+        assert "###PARIS" in user_prompt
+
+    def test_rag_q_int_docs_q_empty_context(self):
+        """验证空上下文的处理"""
+        question = "Test question?"
+        context = ""
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 空上下文应该仍然有起始问题和结尾问题
+        assert "## Question" in user_prompt
+        assert question in user_prompt
+
+    def test_rag_q_int_docs_q_document_content_preserved(self):
+        """验证文档内容完整保留"""
+        question = "Test question?"
+        context = "###PARIS\nParis is the capital city\n\n###LONDON\nLondon is in England"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证原始文档内容未被修改
+        assert "###PARIS\nParis is the capital city" in user_prompt
+        assert "###LONDON\nLondon is in England" in user_prompt
+
+    def test_rag_q_int_docs_q_questions_identical(self):
+        """验证所有问题内容相同"""
+        question = "What is the capital?"
+        context = "###PARIS\nParis\n\n###LONDON\nLondon"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证问题出现次数正确（起始1个 + 每个文档后1个(2个) + 结尾1个 = 4个）
+        assert user_prompt.count(question) == 4
+
+        # 验证每个 "## Question" 后面紧跟的都是同一个问题文本
+        # 使用正则表达式提取所有 ## Question 后面的内容直到换行
+        import re
+        pattern = r"## Question\n([^\n]+)"
+        matches = re.findall(pattern, user_prompt)
+        # 所有匹配的问题应该相同
+        assert len(set(matches)) == 1
+        assert matches[0] == question
+
+    def test_rag_q_int_docs_q_document_labeling(self):
+        """验证文档编号正确"""
+        question = "Test?"
+        context = "###A\nA\n\n###B\nB\n\n###C\nC"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证文档编号从1开始
+        assert "Document 1" in user_prompt
+        assert "Document 2" in user_prompt
+        assert "Document 3" in user_prompt
+
+        # 验证没有 Document 0
+        assert "Document 0" not in user_prompt
+
+    def test_rag_q_int_docs_q_system_prompt(self):
+        """验证使用标准RAG system prompt"""
+        system_prompt = SYSTEM_PROMPT["rag_q_int_docs_q"]
+        rag_system_prompt = SYSTEM_PROMPT["rag"]
+
+        # 应该与其他RAG类型使用相同的system prompt
+        assert system_prompt == rag_system_prompt
+        assert "Based on the context" in system_prompt
+
+    def test_rag_q_int_docs_q_handles_extra_newlines(self):
+        """验证处理多余空行"""
+        question = "Test?"
+        context = "###A\nA\n\n\n\n###B\nB"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 应该只有2个文档（空文档被过滤）
+        assert "Document 1" in user_prompt
+        assert "Document 2" in user_prompt
+        assert "Document 3" not in user_prompt
+
+    def test_rag_q_int_docs_q_preserves_document_internal_newlines(self):
+        """验证保留文档内部的单个换行符"""
+        question = "Test?"
+        context = "###DOC1\nLine 1\nLine 2\n\n###DOC2\nLine 3\nLine 4"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证文档内部的换行被保留
+        assert "Line 1\nLine 2" in user_prompt
+        assert "Line 3\nLine 4" in user_prompt
+
+    def test_rag_q_int_docs_q_order(self):
+        """验证输出顺序：起始问题 → 文档 → 问题 → 文档 → 问题 → ... → 结尾问题"""
+        question = "Test?"
+        context = "###A\nA\n\n###B\nB"
+
+        system_prompt, user_prompt = create_prompt(question, context, "rag_q_int_docs_q")
+
+        # 验证顺序：第一个元素应该是问题
+        assert user_prompt.startswith("## Question")
+
+        # 验证顺序：问题 → Document 1 → 问题
+        parts = user_prompt.split("\n\n")
+        assert "## Question" in parts[0]
+        assert "Document 1" in parts[1]
+        assert "## Question" in parts[2]
+
+    def test_rag_q_int_docs_q_all_questions_same(self, two_document_context):
+        """验证所有问题内容完全相同"""
+        question = "Same question?"
+
+        system_prompt, user_prompt = create_prompt(question, two_document_context, "rag_q_int_docs_q")
+
+        # 验证问题出现次数
+        assert user_prompt.count(question) == 4
+
+        # 每个问题后都应该紧跟文档或结束
+        question_indices = [i for i, part in enumerate(user_prompt.split("\n\n")) if "## Question" in part]
+
+        # 验证问题数量
+        assert len(question_indices) == 4
