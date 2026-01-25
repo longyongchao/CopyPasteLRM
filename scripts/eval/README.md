@@ -34,12 +34,35 @@ python scripts/eval/batch_eval_compare.py --base-path results/infer/test/Qwen2.5
 
 ```bash
 python scripts/eval/compare_two_folders.py \
-    results/infer/test/Qwen2.5-7B-Instruct/resamples_1000/seed_42/tpr_0.0/prompt_rag \
-    results/infer/test/Qwen2.5-7B-Instruct/resamples_1000/seed_42/tpr_0.0/prompt_rag_rep_q \
-    --baseline-name "cq" --compare-name "cqq"
+    results/infer/test/Qwen2.5-7B-Instruct/resamples_1500/seed_42/tpr_0.0/prompt_rag \
+    results/infer/test/qwen3-235b-thinking/resamples_1000/seed_42/tpr_0.0/prompt_rag_rep_2 \
+    --baseline-name "cq" --compare-name "cqcq"
 ```
 
 输出对比表格，按 Δ EM 降序排序。
+
+### 4. 对比多个方法的结果
+
+```bash
+python scripts/eval/compare_multiple_methods.py \
+    results/infer/test/Qwen2.5-7B-Instruct/resamples_1500/seed_42/tpr_0.0
+```
+
+输出包含所有方法的对比表格，行是方法，列是各数据集的 EM 和 F1 指标。
+
+按平均 F1 排序：
+```bash
+python scripts/eval/compare_multiple_methods.py \
+    results/infer/test/.../tpr_0.0 \
+    --sort-by avg_f1
+```
+
+保存到文件：
+```bash
+python scripts/eval/compare_multiple_methods.py \
+    results/infer/test/.../tpr_0.0 \
+    --output comparison.md
+```
 
 ## 脚本说明
 
@@ -47,6 +70,7 @@ python scripts/eval/compare_two_folders.py \
 |------|------|
 | `copypastelrm/eval/eval_folder.py` | 评估单个结果文件夹 |
 | `scripts/eval/compare_two_folders.py` | 对比两个方法的结果 |
+| `scripts/eval/compare_multiple_methods.py` | 对比多个方法在所有数据集上的表现 |
 | `scripts/eval/batch_eval_compare.py` | 批量评估多个结果文件夹 |
 
 ## 对比表格输出示例
@@ -67,4 +91,13 @@ python scripts/eval/compare_two_folders.py \
 | `compare_folder` | 对比方法文件夹路径（必选） | - |
 | `--baseline-name` | 基线方法显示名称 | "Baseline" |
 | `--compare-name` | 对比方法显示名称 | "Method B" |
+| `--output` | 输出文件路径 | 打印到终端 |
+
+### compare_multiple_methods.py
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `parent_folder` | 包含多个方法子文件夹的父目录路径（必选） | - |
+| `--sort-by` | 排序依据：avg_em、avg_f1、name | avg_em |
+| `--sort-order` | 排序顺序：desc（降序）、asc（升序） | desc |
 | `--output` | 输出文件路径 | 打印到终端 |
